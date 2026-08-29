@@ -35,9 +35,11 @@ const DECKS = [
   { id: 'playroom', name: 'The Playroom',          sub: 'Living room 2',  zone: 'lower',   emoji: '🧸' },
   { id: 'ops',      name: 'Ops',                   sub: 'Office',         zone: 'lower',   emoji: '🖥️' },
   { id: 'auxsan',   name: 'Aux Sanitation',        sub: 'Downstairs loo', zone: 'lower',   emoji: '🚽' },
-  { id: 'bunka',    name: "Captain's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
-  { id: 'bunkb',    name: "Commander's Quarters",  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
-  { id: 'bunkc',    name: "Cadet's Quarters",      sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
+  // owner: whose quarters these are. Anything the owner is capable of doing in
+  // their own room is theirs first — see FIRST_REFUSAL below.
+  { id: 'bunka',    name: "Captain's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owner: 'adult' },
+  { id: 'bunkb',    name: "Commander's Quarters",  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owner: 'k9' },
+  { id: 'bunkc',    name: "Cadet's Quarters",      sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owner: 'k5' },
   { id: 'hydro',    name: 'Hydro Bay',             sub: 'Bathroom',       zone: 'upper',   emoji: '🚿' },
   { id: 'turbo',    name: 'Turbolift Shaft',       sub: 'Stairs',         zone: 'transit', emoji: '🪜' },
 ];
@@ -54,6 +56,12 @@ const DECK_ACCESS = {
   k9: ['bunkb', 'playroom', 'galley'],
   k5: ['bunkc', 'playroom', 'galley'],
 };
+
+// Your own bedroom is your responsibility. A duty the owner can do isn't
+// offered to anybody else until it's half again past due, so the owner always
+// gets first crack at it — and nothing rots forever if they never show up.
+// Shared ground (Playroom, Galley) is exempt: anyone may be dealt those.
+const FIRST_REFUSAL = 1.5;
 
 const ZONES = {
   upper:   'Upper Deck',

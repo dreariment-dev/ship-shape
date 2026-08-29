@@ -203,6 +203,20 @@ function renderShip() {
 
 // ── Crew view ───────────────────────────────────────────────────────────────
 
+/** Your own quarters, called out — responsibility you can see is responsibility. */
+function quartersPanel(crewId) {
+  const deck = DECKS.find((k) => k.owner === crewId);
+  if (!deck) return null;
+  const pct = deckIntegrity(deck.id);
+  return el(`
+    <div class="panel">
+      <h3>Your quarters</h3>
+      <div class="rank-name">${deck.emoji} ${deckName(deck.id)}</div>
+      <div class="bar ${band(pct)}" style="margin-top:10px"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
+      <div class="rank-next">${Math.round(pct * 100)}% — ${STATUS[band(pct)]}. Nobody else gets these jobs until you've had your chance.</div>
+    </div>`);
+}
+
 function renderCrew() {
   const wrap = $('#crew-panel');
   wrap.innerHTML = '';
@@ -222,6 +236,9 @@ function renderCrew() {
         <div class="bar ${band(done / goal)}"><span style="width:${Math.min(100, (done / goal) * 100)}%"></span></div>
         ${done >= goal ? '<div class="hit">🏅 Mission complete!</div>' : ''}
       </div>`));
+
+    const q = quartersPanel(id);
+    if (q) wrap.append(q);
 
     const total = countSince(id, 0);
     wrap.append(el(`
@@ -244,6 +261,9 @@ function renderCrew() {
       <div class="bar ${band(pctToTarget)}"><span style="width:${pctToTarget * 100}%"></span></div>
       ${targetHit(id) ? '<div class="hit">🏅 Target met — award earned</div>' : ''}
     </div>`));
+
+  const q = quartersPanel(id);
+  if (q) wrap.append(q);
 
   wrap.append(el(`
     <div class="panel">

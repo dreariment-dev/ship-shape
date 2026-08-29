@@ -130,12 +130,25 @@ function canAccess(crewId, deckId) {
   return allowed === null || allowed === undefined || allowed.includes(deckId);
 }
 
+/**
+ * Is this duty being held for the crew member whose room it's in? Their own
+ * quarters are their responsibility, so nobody else is offered a job they can
+ * do there until it's well past due and somebody has to step in.
+ */
+function heldForOwner(crewId, d) {
+  const owner = deckById[d.deck].owner;
+  if (!owner || owner === crewId) return false;
+  if (!d.who.includes(owner)) return false; // they can't do it, so it isn't theirs
+  return dueness(d.id) < FIRST_REFUSAL;
+}
+
 function eligible(crewId, exclude = []) {
   const now = Date.now();
   return DUTIES.filter(
     (d) =>
       canAccess(crewId, d.deck) &&
       d.who.includes(crewId) &&
+      !heldForOwner(crewId, d) &&
       !exclude.includes(d.id) &&
       state.duties[d.id].snooze < now
   );

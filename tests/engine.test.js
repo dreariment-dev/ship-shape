@@ -105,6 +105,69 @@ run('every deck a child can reach really exists', () => {
   assert.strictEqual(bogus.length, 0, `unknown decks in DECK_ACCESS: ${[...bogus].join(', ')}`);
 });
 
+run('a child gets first refusal on their own bedroom', () => {
+  // Freshly-done and merely-due jobs in a child's room must not reach the
+  // adult; the child is meant to get the chance first.
+  const leaked = ctx(`
+    (() => {
+      load();
+      DUTIES.filter(d => d.deck === 'bunkc').forEach(d => {
+        state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; // due, not overdue
+      });
+      const seen = new Set();
+      for (let i = 0; i < 3000; i++) { const d = draw('adult'); if (d) seen.add(d.id); }
+      return [...seen].filter(id => {
+        const d = dutyById[id];
+        return d.deck === 'bunkc' && d.who.includes('k5');
+      });
+    })()`);
+  assert.strictEqual(leaked.length, 0, `adult was offered the Cadet's own jobs: ${[...leaked].join(', ')}`);
+});
+
+run('the adult still backstops a bedroom left to rot', () => {
+  // First refusal must not mean never. Push well past due and the adult picks
+  // it up, so a neglected room can't drag the ship down forever.
+  const reached = ctx(`
+    (() => {
+      load();
+      DUTIES.filter(d => d.deck === 'bunkc').forEach(d => {
+        state.duties[d.id].last = Date.now() - d.days * 86400000 * 3;
+      });
+      for (let i = 0; i < 3000; i++) {
+        const d = draw('adult');
+        if (d && d.deck === 'bunkc' && d.who.includes('k5')) return true;
+      }
+      return false;
+    })()`);
+  assert.strictEqual(reached, true, 'a rotting bedroom never reaches the adult');
+});
+
+run('shared decks are exempt from first refusal', () => {
+  // The Playroom and Galley stay open to everyone, whatever their state.
+  const reached = ctx(`
+    (() => {
+      load();
+      DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
+      const seen = new Set();
+      for (let i = 0; i < 3000; i++) { const d = draw('adult'); if (d) seen.add(d.deck); }
+      return ['playroom', 'galley'].every(k => seen.has(k));
+    })()`);
+  assert.strictEqual(reached, true, 'adult was locked out of the shared decks');
+});
+
+run('a child is never blocked from their own room', () => {
+  const ok = ctx(`
+    (() => {
+      load();
+      DUTIES.filter(d => d.deck === 'bunkc').forEach(d => {
+        state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1;
+      });
+      for (let i = 0; i < 2000; i++) { const d = draw('k5'); if (d && d.deck === 'bunkc') return true; }
+      return false;
+    })()`);
+  assert.strictEqual(ok, true, 'the Cadet cannot reach their own quarters');
+});
+
 run('every crew member can still reach their weekly target', () => {
   // A target nobody can physically reach is a broken promise, not a challenge.
   const rows = ctx(`
