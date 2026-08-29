@@ -64,8 +64,13 @@ function reconcileRoster() {
       };
     }
   });
-  state.crewNames ??= Object.fromEntries(CREW.map((c) => [c.id, c.name]));
-  state.deckNames ??= Object.fromEntries(DECKS.map((d) => [d.id, d.name]));
+  // Backfill per entry rather than per object: a save from an earlier release
+  // has a names map, just one missing the decks added since. Existing entries
+  // are left alone so the crew's own renames survive an update.
+  state.crewNames ??= {};
+  state.deckNames ??= {};
+  CREW.forEach((c) => { state.crewNames[c.id] ??= c.name; });
+  DECKS.forEach((d) => { state.deckNames[d.id] ??= d.name; });
 }
 
 // ── Decay ───────────────────────────────────────────────────────────────────
@@ -119,14 +124,26 @@ function shipIntegrity() {
 
 // ── Dealing cards ───────────────────────────────────────────────────────────
 
+/** Decks this crew member can be sent to. null in DECK_ACCESS means anywhere. */
+function canAccess(crewId, deckId) {
+  const allowed = DECK_ACCESS[crewId];
+  return allowed === null || allowed === undefined || allowed.includes(deckId);
+}
+
 function eligible(crewId, exclude = []) {
   const now = Date.now();
   return DUTIES.filter(
     (d) =>
+      canAccess(crewId, d.deck) &&
       d.who.includes(crewId) &&
       !exclude.includes(d.id) &&
       state.duties[d.id].snooze < now
   );
+}
+
+/** Decks a crew member has any business in — drives the Cadet's Ship tab. */
+function decksFor(crewId) {
+  return DECKS.filter((k) => canAccess(crewId, k.id));
 }
 
 /**

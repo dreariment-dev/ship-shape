@@ -79,6 +79,49 @@ run('the draw respects who can do what', () => {
   assert.strictEqual(bad.length, 0, `Cadet was dealt: ${[...bad].join(', ')}`);
 });
 
+run('the draw keeps each child to their own decks', () => {
+  // Own quarters, the Playroom and the Galley — nothing else, and never the
+  // other child's room.
+  ['k9', 'k5'].forEach((id) => {
+    const strayed = ctx(`
+      (() => {
+        const seen = new Set();
+        for (let i = 0; i < 800; i++) { const d = draw('${id}'); if (d) seen.add(d.deck); }
+        return [...seen].filter(k => DECK_ACCESS['${id}'].indexOf(k) === -1);
+      })()`);
+    assert.strictEqual(strayed.length, 0, `${id} was sent to: ${[...strayed].join(', ')}`);
+  });
+});
+
+run('the children cannot be sent into each other rooms', () => {
+  assert.ok(!ctx("DECK_ACCESS.k9.includes('bunkc')"), 'Commander can reach the Cadet quarters');
+  assert.ok(!ctx("DECK_ACCESS.k5.includes('bunkb')"), 'Cadet can reach the Commander quarters');
+  assert.ok(!ctx("DECK_ACCESS.k9.includes('bunka')"), 'Commander can reach the adults quarters');
+});
+
+run('every deck a child can reach really exists', () => {
+  const bogus = ctx(`
+    ['k9','k5'].flatMap(c => DECK_ACCESS[c].filter(k => !DECKS.some(d => d.id === k)))`);
+  assert.strictEqual(bogus.length, 0, `unknown decks in DECK_ACCESS: ${[...bogus].join(', ')}`);
+});
+
+run('every crew member can still reach their weekly target', () => {
+  // A target nobody can physically reach is a broken promise, not a challenge.
+  const rows = ctx(`
+    CREW.map(c => {
+      const pool = DUTIES.filter(d => canAccess(c.id, d.deck) && d.who.includes(c.id));
+      const perWeek = pool.reduce((a, d) => a + (d.pts * 7) / d.days, 0);
+      return { id: c.id, target: c.target, perWeek: Math.round(perWeek), n: pool.length };
+    })`);
+  [...rows].forEach((r) => {
+    assert.ok(
+      r.perWeek >= r.target * 1.3,
+      `${r.id}: only ${r.perWeek} merit/wk available against a ${r.target} target`
+    );
+    assert.ok(r.n >= 5, `${r.id} has only ${r.n} duties available — too repetitive`);
+  });
+});
+
 run('the draw reaches a good spread of the roster', () => {
   const n = ctx(`
     (() => {

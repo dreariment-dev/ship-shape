@@ -20,9 +20,16 @@ const isSimple = () => crew().mode === 'simple';
 const deckName = (id) => state.deckNames[id] || deckById[id].name;
 const crewName = (id) => state.crewNames[id] || crewById(id).name;
 
+// Calibrated against what the crew actually sign up for, not against a
+// spotless house. Everyone hitting their weekly target lands the ship near
+// 43% integrity, so that has to read as a job well done — a dashboard that
+// sits permanently red is the guilt trip this whole app exists to avoid.
+// Raise these only if you also raise the weekly targets.
 function band(pct) {
-  return pct >= 0.7 ? 'good' : pct >= 0.4 ? 'warn' : 'bad';
+  return pct >= 0.4 ? 'good' : pct >= 0.25 ? 'warn' : 'bad';
 }
+
+const STATUS = { good: 'All systems nominal', warn: 'Needs attention', bad: 'Critical' };
 
 function toast(msg, ms = 2200) {
   const t = $('#toast');
@@ -40,10 +47,14 @@ function toast(msg, ms = 2200) {
 
 function renderHud() {
   const pct = shipIntegrity();
+  const b = band(pct);
   $('#ship-pct').textContent = `${Math.round(pct * 100)}%`;
+  // The bare percentage invites the wrong reading, so say what it means.
+  $('#ship-status').textContent = STATUS[b];
+  $('#ship-status').className = `status ${b}`;
   const bar = $('#ship-bar');
   bar.style.width = `${Math.max(2, pct * 100)}%`;
-  bar.className = band(pct);
+  bar.className = b;
 
   $('#crew-switch').innerHTML = '';
   CREW.forEach((c) => {
@@ -149,29 +160,45 @@ function doComplete(duty, bonus = 1) {
 
 // ── Ship view ───────────────────────────────────────────────────────────────
 
+function deckRow(d, muted) {
+  const pct = deckIntegrity(d.id);
+  return el(`
+    <div class="deck ${muted ? 'muted' : ''}">
+      <span class="em">${d.emoji}</span>
+      <div class="body">
+        <div class="name">${deckName(d.id)}</div>
+        <div class="sub">${d.sub}</div>
+        <div class="bar ${band(pct)}"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
+      </div>
+      <div class="pct">${Math.round(pct * 100)}%</div>
+    </div>`);
+}
+
+const worstFirst = (a, b) => deckIntegrity(a.id) - deckIntegrity(b.id);
+
 function renderShip() {
   const wrap = $('#deck-list');
   wrap.innerHTML = '';
-  Object.entries(ZONES).forEach(([zone, title]) => {
-    const decks = DECKS.filter((d) => d.zone === zone);
-    if (!decks.length) return;
-    wrap.append(el(`<div class="zone-title">${title}</div>`));
-    decks
-      .sort((a, b) => deckIntegrity(a.id) - deckIntegrity(b.id))
-      .forEach((d) => {
-        const pct = deckIntegrity(d.id);
-        wrap.append(el(`
-          <div class="deck">
-            <span class="em">${d.emoji}</span>
-            <div class="body">
-              <div class="name">${deckName(d.id)}</div>
-              <div class="sub">${d.sub}</div>
-              <div class="bar ${band(pct)}"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
-            </div>
-            <div class="pct">${Math.round(pct * 100)}%</div>
-          </div>`));
-      });
-  });
+  const mine = decksFor(state.activeCrew);
+
+  // Crew with the run of the ship get the full zone breakdown. Anyone on a
+  // restricted rota gets their own decks first and the rest greyed behind
+  // them — still one shared ship, but no wall of jobs they can't take.
+  if (mine.length === DECKS.length) {
+    Object.entries(ZONES).forEach(([zone, title]) => {
+      const decks = DECKS.filter((d) => d.zone === zone);
+      if (!decks.length) return;
+      wrap.append(el(`<div class="zone-title">${title}</div>`));
+      decks.slice().sort(worstFirst).forEach((d) => wrap.append(deckRow(d, false)));
+    });
+    return;
+  }
+
+  const rest = DECKS.filter((d) => !mine.includes(d));
+  wrap.append(el('<div class="zone-title">Your decks</div>'));
+  mine.slice().sort(worstFirst).forEach((d) => wrap.append(deckRow(d, false)));
+  wrap.append(el('<div class="zone-title">Rest of the ship</div>'));
+  rest.slice().sort(worstFirst).forEach((d) => wrap.append(deckRow(d, true)));
 }
 
 // ── Crew view ───────────────────────────────────────────────────────────────
@@ -405,6 +432,16 @@ function init() {
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
+
+    // A new worker taking over means new files are cached. Reload once so the
+    // crew get the update without anyone reinstalling anything — the guard
+    // stops the classic refresh loop if the worker changes again mid-load.
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloading) return;
+      reloading = true;
+      location.reload();
+    });
   }
 }
 

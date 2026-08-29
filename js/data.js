@@ -30,17 +30,30 @@ const RANKS = [
 ];
 
 const DECKS = [
-  { id: 'galley',   name: 'The Galley',       sub: 'Kitchen',        zone: 'lower',   emoji: '🍳' },
-  { id: 'bridge',   name: 'The Bridge',       sub: 'Living room',    zone: 'lower',   emoji: '🛋️' },
-  { id: 'wardroom', name: 'The Wardroom',     sub: 'Living room 2',  zone: 'lower',   emoji: '📺' },
-  { id: 'ops',      name: 'Ops',              sub: 'Office',         zone: 'lower',   emoji: '🖥️' },
-  { id: 'auxsan',   name: 'Aux Sanitation',   sub: 'Downstairs loo', zone: 'lower',   emoji: '🚽' },
-  { id: 'bunka',    name: 'Crew Quarters A',  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
-  { id: 'bunkb',    name: 'Crew Quarters B',  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
-  { id: 'bunkc',    name: 'Crew Quarters C',  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
-  { id: 'hydro',    name: 'Hydro Bay',        sub: 'Bathroom',       zone: 'upper',   emoji: '🚿' },
-  { id: 'turbo',    name: 'Turbolift Shaft',  sub: 'Stairs',         zone: 'transit', emoji: '🪜' },
+  { id: 'galley',   name: 'The Galley',            sub: 'Kitchen',        zone: 'lower',   emoji: '🍳' },
+  { id: 'bridge',   name: 'The Bridge',            sub: 'Living room',    zone: 'lower',   emoji: '🛋️' },
+  { id: 'playroom', name: 'The Playroom',          sub: 'Living room 2',  zone: 'lower',   emoji: '🧸' },
+  { id: 'ops',      name: 'Ops',                   sub: 'Office',         zone: 'lower',   emoji: '🖥️' },
+  { id: 'auxsan',   name: 'Aux Sanitation',        sub: 'Downstairs loo', zone: 'lower',   emoji: '🚽' },
+  { id: 'bunka',    name: "Captain's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
+  { id: 'bunkb',    name: "Commander's Quarters",  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
+  { id: 'bunkc',    name: "Cadet's Quarters",      sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️' },
+  { id: 'hydro',    name: 'Hydro Bay',             sub: 'Bathroom',       zone: 'upper',   emoji: '🚿' },
+  { id: 'turbo',    name: 'Turbolift Shaft',       sub: 'Stairs',         zone: 'transit', emoji: '🪜' },
 ];
+
+// Which decks each crew member can be dealt from. The children keep their own
+// quarters and share the Playroom and Galley; everything else is the adults'.
+// null means the whole ship.
+//
+// This is a separate gate from the `who` tags below: access says where you may
+// be sent, `who` says whether the job itself is safe for you. Both must pass,
+// so the Cadet still won't be handed the window cleaner in their own room.
+const DECK_ACCESS = {
+  adult: null,
+  k9: ['bunkb', 'playroom', 'galley'],
+  k5: ['bunkc', 'playroom', 'galley'],
+};
 
 const ZONES = {
   upper:   'Upper Deck',
@@ -85,12 +98,18 @@ const DUTIES = [
   { deck: 'bridge', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
 
   // ── Wardroom ──────────────────────────────────────────────────────────────
-  { deck: 'wardroom', name: 'Clutter sweep',          icon: '📦', tier: 'often',    mins: 5,  who: ALL },
-  { deck: 'wardroom', name: 'Dust the surfaces',      icon: '🪶', tier: 'weekly',   mins: 5,  who: GROWN },
-  { deck: 'wardroom', name: 'Hoover the wardroom',    icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
-  { deck: 'wardroom', name: 'Skirting boards',        icon: '📏', tier: 'monthly',  mins: 15, who: GROWN },
-  { deck: 'wardroom', name: 'Clean the windows',      icon: '🪟', tier: 'monthly',  mins: 15, who: ADULT },
-  { deck: 'wardroom', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
+  // The Playroom is shared ground for both children, so it carries more jobs
+  // they can actually be dealt than a second sitting room would.
+  { deck: 'playroom', name: 'Toys back in their boxes', icon: '🧸', tier: 'often',  mins: 5,  who: ALL },
+  { deck: 'playroom', name: 'Clutter sweep',          icon: '📦', tier: 'often',    mins: 5,  who: ALL },
+  { deck: 'playroom', name: 'Dust the surfaces',      icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
+  { deck: 'playroom', name: 'Hoover the playroom',    icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
+  { deck: 'playroom', name: 'Sort out one toy box',   icon: '🪀', tier: 'monthly',  mins: 20, who: ALL },
+  { deck: 'playroom', name: 'Wipe the doors and light switches', icon: '🚪', tier: 'monthly', mins: 10, who: ALL },
+  { deck: 'playroom', name: 'Skirting boards',        icon: '📏', tier: 'monthly',  mins: 15, who: GROWN },
+  { deck: 'playroom', name: 'Clean the windows',      icon: '🪟', tier: 'monthly',  mins: 15, who: ADULT },
+  { deck: 'playroom', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
+  { deck: 'playroom', name: 'Cull the broken toys and lost pieces', icon: '🗑️', tier: 'seasonal', mins: 30, who: ADULT },
 
   // ── Ops ───────────────────────────────────────────────────────────────────
   { deck: 'ops', name: 'Paper and clutter sweep',     icon: '📄', tier: 'often',    mins: 5,  who: GROWN },

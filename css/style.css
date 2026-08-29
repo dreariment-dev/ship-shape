@@ -78,6 +78,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
   color: var(--cyan);
 }
 
+.ship-stat { display: flex; flex-direction: column; gap: 1px; }
+.status { font-size: 12px; font-weight: 600; }
+.status.good { color: var(--green); }
+.status.warn { color: var(--amber); }
+.status.bad  { color: var(--red); }
+
 .icon-btn {
   width: 40px; height: 40px;
   border: 1px solid var(--line);
@@ -236,6 +242,9 @@ main {
   text-align: right;
 }
 .deck .bar { margin-top: 6px; }
+/* Someone else's deck: still visible so the ship reads as shared, but clearly
+   not yours to act on. */
+.deck.muted { opacity: 0.42; }
 
 /* ── Crew panel ───────────────────────────────────────────────────────────── */
 
