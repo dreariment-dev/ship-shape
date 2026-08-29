@@ -32,14 +32,14 @@ const RANKS = [
 const DECKS = [
   { id: 'galley',   name: 'The Galley',            sub: 'Kitchen',        zone: 'lower',   emoji: '🍳' },
   { id: 'bridge',   name: 'The Bridge',            sub: 'Living room',    zone: 'lower',   emoji: '🛋️' },
-  { id: 'playroom', name: 'The Playroom',          sub: 'Living room 2',  zone: 'lower',   emoji: '🧸' },
+  { id: 'playroom', name: 'The Playroom',          sub: 'Living room 2',  zone: 'lower',   emoji: '🧸', owners: ['k9', 'k5'] },
   { id: 'ops',      name: 'Ops',                   sub: 'Office',         zone: 'lower',   emoji: '🖥️' },
   { id: 'auxsan',   name: 'Aux Sanitation',        sub: 'Downstairs loo', zone: 'lower',   emoji: '🚽' },
-  // owner: whose quarters these are. Anything the owner is capable of doing in
-  // their own room is theirs first — see FIRST_REFUSAL below.
-  { id: 'bunka',    name: "Captain's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owner: 'adult' },
-  { id: 'bunkb',    name: "Commander's Quarters",  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owner: 'k9' },
-  { id: 'bunkc',    name: "Cadet's Quarters",      sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owner: 'k5' },
+  // owners: whose patch this is. Anything an owner is capable of doing here is
+  // theirs first — see FIRST_REFUSAL below. A deck can have more than one.
+  { id: 'bunka',    name: "Captain's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['adult'] },
+  { id: 'bunkb',    name: "Commander's Quarters",  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['k9'] },
+  { id: 'bunkc',    name: "Cadet's Quarters",      sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['k5'] },
   { id: 'hydro',    name: 'Hydro Bay',             sub: 'Bathroom',       zone: 'upper',   emoji: '🚿' },
   { id: 'turbo',    name: 'Turbolift Shaft',       sub: 'Stairs',         zone: 'transit', emoji: '🪜' },
 ];
@@ -57,10 +57,10 @@ const DECK_ACCESS = {
   k5: ['bunkc', 'playroom', 'galley'],
 };
 
-// Your own bedroom is your responsibility. A duty the owner can do isn't
-// offered to anybody else until it's half again past due, so the owner always
-// gets first crack at it — and nothing rots forever if they never show up.
-// Shared ground (Playroom, Galley) is exempt: anyone may be dealt those.
+// Your own patch is your responsibility. A duty an owner can do isn't offered
+// to anybody else until it's half again past due, so the owners always get
+// first crack at it — and nothing rots forever if they never show up.
+// The Galley is the only genuinely shared deck: anyone may be dealt those.
 const FIRST_REFUSAL = 1.5;
 
 const ZONES = {

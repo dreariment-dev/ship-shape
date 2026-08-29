@@ -131,14 +131,16 @@ function canAccess(crewId, deckId) {
 }
 
 /**
- * Is this duty being held for the crew member whose room it's in? Their own
- * quarters are their responsibility, so nobody else is offered a job they can
- * do there until it's well past due and somebody has to step in.
+ * Is this duty being held for whoever's patch it's on? Their own decks are
+ * their responsibility, so nobody else is offered a job they can do there
+ * until it's well past due and somebody has to step in.
  */
 function heldForOwner(crewId, d) {
-  const owner = deckById[d.deck].owner;
-  if (!owner || owner === crewId) return false;
-  if (!d.who.includes(owner)) return false; // they can't do it, so it isn't theirs
+  const owners = deckById[d.deck].owners;
+  if (!owners || owners.includes(crewId)) return false;
+  // Held only if an owner could actually do it — the adult-only jobs in a
+  // child's room were never theirs to begin with.
+  if (!owners.some((o) => d.who.includes(o))) return false;
   return dueness(d.id) < FIRST_REFUSAL;
 }
 

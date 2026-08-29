@@ -203,17 +203,26 @@ function renderShip() {
 
 // ── Crew view ───────────────────────────────────────────────────────────────
 
-/** Your own quarters, called out — responsibility you can see is responsibility. */
+/** The decks you're answerable for — responsibility you can see is responsibility. */
 function quartersPanel(crewId) {
-  const deck = DECKS.find((k) => k.owner === crewId);
-  if (!deck) return null;
-  const pct = deckIntegrity(deck.id);
+  const mine = DECKS.filter((k) => k.owners?.includes(crewId));
+  if (!mine.length) return null;
+  const rows = mine
+    .map((deck) => {
+      const pct = deckIntegrity(deck.id);
+      const shared = deck.owners.length > 1;
+      return `<div style="margin-bottom:12px">
+        <div class="rank-name" style="font-size:17px">${deck.emoji} ${deckName(deck.id)}${shared ? ' <span style="font-size:12px;color:var(--dim);font-weight:400">· shared</span>' : ''}</div>
+        <div class="bar ${band(pct)}" style="margin-top:8px"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
+        <div class="rank-next">${Math.round(pct * 100)}% — ${STATUS[band(pct)]}</div>
+      </div>`;
+    })
+    .join('');
   return el(`
     <div class="panel">
-      <h3>Your quarters</h3>
-      <div class="rank-name">${deck.emoji} ${deckName(deck.id)}</div>
-      <div class="bar ${band(pct)}" style="margin-top:10px"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
-      <div class="rank-next">${Math.round(pct * 100)}% — ${STATUS[band(pct)]}. Nobody else gets these jobs until you've had your chance.</div>
+      <h3>Yours to look after</h3>
+      ${rows}
+      <div class="sub-num">Nobody else is offered these until you've had your chance at them.</div>
     </div>`);
 }
 

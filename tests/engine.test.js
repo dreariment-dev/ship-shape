@@ -142,17 +142,49 @@ run('the adult still backstops a bedroom left to rot', () => {
   assert.strictEqual(reached, true, 'a rotting bedroom never reaches the adult');
 });
 
-run('shared decks are exempt from first refusal', () => {
-  // The Playroom and Galley stay open to everyone, whatever their state.
+run('the Galley stays open to everyone', () => {
+  // The only deck with no owner — anyone can be dealt it at any time.
   const reached = ctx(`
     (() => {
       load();
       DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
       const seen = new Set();
       for (let i = 0; i < 3000; i++) { const d = draw('adult'); if (d) seen.add(d.deck); }
-      return ['playroom', 'galley'].every(k => seen.has(k));
+      return seen.has('galley');
     })()`);
-  assert.strictEqual(reached, true, 'adult was locked out of the shared decks');
+  assert.strictEqual(reached, true, 'adult was locked out of the Galley');
+});
+
+run('the Playroom is held for the children', () => {
+  // Both children own it, so a merely-due Playroom job must not reach an adult
+  // — but the adult-only jobs there (windows, high shelves) still must.
+  const res = ctx(`
+    (() => {
+      load();
+      DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
+      const seen = new Set();
+      for (let i = 0; i < 4000; i++) { const d = draw('adult'); if (d && d.deck === 'playroom') seen.add(d.id); }
+      const kidDoable = [...seen].filter(id => {
+        const d = dutyById[id];
+        return d.who.includes('k9') || d.who.includes('k5');
+      });
+      return { leaked: kidDoable, adultOnlyReached: seen.size - kidDoable.length };
+    })()`);
+  assert.strictEqual(res.leaked.length, 0, `adult was offered kid Playroom jobs: ${[...res.leaked].join(', ')}`);
+  assert.ok(res.adultOnlyReached > 0, 'adult never reached the adult-only Playroom jobs');
+});
+
+run('both children can still be dealt the Playroom freely', () => {
+  ['k9', 'k5'].forEach((id) => {
+    const ok = ctx(`
+      (() => {
+        load();
+        DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
+        for (let i = 0; i < 2000; i++) { const d = draw('${id}'); if (d && d.deck === 'playroom') return true; }
+        return false;
+      })()`);
+    assert.strictEqual(ok, true, `${id} cannot reach the Playroom they co-own`);
+  });
 });
 
 run('a child is never blocked from their own room', () => {
