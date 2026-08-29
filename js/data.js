@@ -13,13 +13,18 @@ const TIERS = {
 
 // target is merit per week and drives rank and the crew standing. `goal` is
 // what a simple-mode crew member actually sees — a count of droids, because a
-// five-year-old can count droids and cannot read a points total. It's set
-// deliberately above what the daily standing orders alone would earn (14/week),
-// so consistency gets you most of the way but not all of it.
+// five-year-old can count droids and cannot read a points total.
+//
+// The Cadet's goal is 24, one full hangar, which the hangar bay then fills and
+// empties weekly. Four nightly duties can yield 28 on their own, so a week of
+// perfect bedtimes and a clear table completes it without a single chore —
+// that is deliberate. Seven consecutive good bedtimes is a genuinely good week
+// and ought to win. The lever if you'd rather chores mattered more is the
+// merit on the night watch, not the goal.
 const CREW = [
   { id: 'adult', name: 'Captain',   emoji: '🧑‍🚀', target: 500, mode: 'full'  },
   { id: 'k9',    name: 'Commander', emoji: '🫡',   target: 200, mode: 'full'  },
-  { id: 'k5',    name: 'Cadet',     emoji: '👾',   target: 90,  mode: 'simple', goal: 16 },
+  { id: 'k5',    name: 'Cadet',     emoji: '👾',   target: 400, mode: 'simple', goal: 24 },
 ];
 
 // Rank thresholds are multiples of a crew member's own weekly target, so the
@@ -163,6 +168,14 @@ const DUTIES = [
   { deck: 'hydro', name: 'Scrub the grout',           icon: '🧱', tier: 'seasonal', mins: 40, who: ADULT, pts: 150 },
 
   // ── Crew Quarters (same template on each of the three) ────────────────────
+  // ── The Cadet's night watch ───────────────────────────────────────────────
+  // Not chores, but the same machinery works: nightly cadence, done or not
+  // done. Priced well above anything else on their sheet because these are
+  // the two behaviours actually worth buying. Cadet-only by design — the
+  // Commander gets no credit for the Cadet's bedtime.
+  { deck: 'bunkc', name: 'Sleep in your own bed',  icon: '🌙', tier: 'daily', mins: 10, pts: 25, who: ['k5'], owners: ['k5'] },
+  { deck: 'bunkc', name: 'Asleep by half past 8',  icon: '⏰', tier: 'daily', mins: 10, pts: 25, who: ['k5'], owners: ['k5'] },
+
   ...['bunka', 'bunkb', 'bunkc'].flatMap((deck) => [
     { deck, name: 'Make the bed',              icon: '🛏️', tier: 'often',    mins: 2,  who: ALL },
     { deck, name: 'Everything back where it lives', icon: '📦', tier: 'often', mins: 5, who: ALL },

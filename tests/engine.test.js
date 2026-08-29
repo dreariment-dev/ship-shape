@@ -149,7 +149,7 @@ run("the children's standing orders in the Galley are held for them", () => {
     (() => {
       load();
       DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
-      const orders = DUTIES.filter(d => d.owners).map(d => d.id);
+      const orders = DUTIES.filter(d => d.owners && d.deck === 'galley').map(d => d.id);
       const seen = new Set();
       for (let i = 0; i < 4000; i++) { const d = draw('adult'); if (d) seen.add(d.id); }
       return {
@@ -158,7 +158,7 @@ run("the children's standing orders in the Galley are held for them", () => {
         galleyStillOpen: [...seen].some(id => dutyById[id].deck === 'galley'),
       };
     })()`);
-  assert.strictEqual(res.orders, 2, 'expected exactly two duty-level standing orders');
+  assert.strictEqual(res.orders, 2, 'expected two duty-level standing orders in the Galley');
   assert.strictEqual(res.leaked.length, 0, `adult was offered: ${[...res.leaked].join(', ')}`);
   assert.strictEqual(res.galleyStillOpen, true, 'reserving two duties closed the whole Galley');
 });
@@ -249,20 +249,45 @@ run('a child is never blocked from their own room', () => {
   assert.strictEqual(ok, true, 'the Cadet cannot reach their own quarters');
 });
 
-run('daily standing orders cannot carry a week on their own', () => {
-  // Doing only the table and the island every day is good, but it shouldn't
-  // complete the week by itself or the rest of the roster is decoration.
+run('no single duty can complete a week by itself', () => {
+  // A week of perfect bedtimes is allowed to win — that's the point of pricing
+  // the night watch high. But no one duty repeated alone should do it, or the
+  // app collapses to a single button.
   const res = ctx(`
     CREW.filter(c => c.goal).map(c => {
-      const orders = DUTIES.filter(d => d.owners && d.owners.includes(c.id));
-      return { id: c.id, goal: c.goal, ordersPerWeek: orders.reduce((a, d) => a + 7 / d.days, 0) };
+      const pool = DUTIES.filter(d => canAccess(c.id, d.deck) && d.who.includes(c.id));
+      return {
+        id: c.id, goal: c.goal, target: c.target,
+        bestCount: Math.max(...pool.map(d => 7 / d.days)),
+        bestMerit: Math.max(...pool.map(d => (d.pts * 7) / d.days)),
+      };
     })`);
   [...res].forEach((r) => {
-    assert.ok(
-      r.ordersPerWeek < r.goal,
-      `${r.id}: standing orders give ${r.ordersPerWeek}/week against a goal of ${r.goal}`
-    );
+    assert.ok(r.bestCount < r.goal, `${r.id}: one duty alone yields ${r.bestCount} of a ${r.goal} goal`);
+    assert.ok(r.bestMerit < r.target, `${r.id}: one duty alone yields ${r.bestMerit} of a ${r.target} target`);
   });
+});
+
+run('the night watch belongs to the Cadet alone', () => {
+  // The Commander must not earn credit for the Cadet's bedtime, and it must
+  // never be dealt to an adult while it's merely due.
+  const res = ctx(`
+    (() => {
+      const night = DUTIES.filter(d => d.deck === 'bunkc' && d.tier === 'daily');
+      load();
+      night.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
+      const ids = night.map(d => d.id);
+      let adultSaw = false, k9Saw = false;
+      for (let i = 0; i < 3000; i++) {
+        const a = draw('adult'); if (a && ids.includes(a.id)) adultSaw = true;
+        const b = draw('k9');    if (b && ids.includes(b.id)) k9Saw = true;
+      }
+      return { n: night.length, who: night.map(d => d.who.join(',')), adultSaw, k9Saw };
+    })()`);
+  assert.strictEqual(res.n, 2, 'expected two night-watch duties');
+  [...res.who].forEach((w) => assert.strictEqual(w, 'k5', `night watch open to: ${w}`));
+  assert.strictEqual(res.adultSaw, false, 'adult was dealt the night watch');
+  assert.strictEqual(res.k9Saw, false, 'Commander was dealt the Cadet night watch');
 });
 
 run('a simple-mode goal is reachable within the available pool', () => {

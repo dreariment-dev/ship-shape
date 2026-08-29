@@ -249,14 +249,18 @@ function renderCrew() {
     const q = quartersPanel(id);
     if (q) wrap.append(q);
 
-    const total = countSince(id, 0);
+    // The hangar is the weekly goal made visible: fill all 24 slots by Sunday
+    // and you've rescued a whole crew. It empties each week, so the collection
+    // never "completes" and stops being a reward — the old lifetime version
+    // filled up for good inside a fortnight.
+    const crews = Math.floor(lifetime(id) / (crew().target || 1));
     wrap.append(el(`
       <div class="panel">
         <h3>Hangar bay</h3>
         <div class="hangar">
-          ${DROIDS.map(([em], i) => `<div class="${i < total ? '' : 'locked'}" title="${DROIDS[i][1]}">${em}</div>`).join('')}
+          ${DROIDS.map(([em], i) => `<div class="${i < done ? '' : 'locked'}" title="${DROIDS[i][1]}">${em}</div>`).join('')}
         </div>
-        <div class="sub-num">${Math.min(total, DROIDS.length)} of ${DROIDS.length} rescued</div>
+        <div class="sub-num">${Math.min(done, DROIDS.length)} of ${DROIDS.length} aboard this week${crews ? ` · ${crews} crew${crews > 1 ? 's' : ''} rescued so far` : ''}</div>
       </div>`));
     return;
   }
