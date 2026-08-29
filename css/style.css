@@ -1,0 +1,392 @@
+/* Ship Shape — dark HUD. Deliberately no webfonts, no images and no animation
+   beyond a couple of cheap transforms: this has to feel instant on an old
+   Android handset. */
+
+:root {
+  --bg: #05070f;
+  --panel: #0e1626;
+  --panel-2: #16213a;
+  --line: #223354;
+  --text: #d3e2f7;
+  --dim: #7d90ae;
+  --cyan: #4fd6ff;
+  --amber: #ffb845;
+  --green: #46d98a;
+  --red: #ff5f6b;
+  --tap: 48px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior: none;
+}
+
+/* Starfield: three layers of tiny radial dots. Costs nothing to paint. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, #ffffff55 50%, transparent 50%),
+    radial-gradient(1px 1px at 70% 15%, #ffffff44 50%, transparent 50%),
+    radial-gradient(1px 1px at 45% 70%, #ffffff33 50%, transparent 50%),
+    radial-gradient(1px 1px at 85% 55%, #ffffff44 50%, transparent 50%),
+    radial-gradient(1px 1px at 10% 85%, #ffffff33 50%, transparent 50%),
+    radial-gradient(1px 1px at 60% 90%, #ffffff44 50%, transparent 50%);
+  background-size: 320px 320px;
+  opacity: 0.7;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+
+button { font: inherit; color: inherit; cursor: pointer; }
+
+/* ── HUD ──────────────────────────────────────────────────────────────────── */
+
+.hud {
+  position: relative;
+  z-index: 2;
+  padding: 12px 14px 10px;
+  background: linear-gradient(180deg, #0a1020, #05070f);
+  border-bottom: 1px solid var(--line);
+}
+
+.hud-row { display: flex; align-items: center; justify-content: space-between; }
+
+.ship-stat .label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.ship-stat strong {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--cyan);
+}
+
+.icon-btn {
+  width: 40px; height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 18px;
+}
+
+.bar {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 99px;
+  background: #101a2e;
+  overflow: hidden;
+}
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.good span, span.good { background: var(--green); }
+.warn span, span.warn { background: var(--amber); }
+.bad  span, span.bad  { background: var(--red); }
+
+.crew-switch { display: flex; gap: 8px; margin-top: 12px; }
+.crew-switch button {
+  flex: 1;
+  min-height: var(--tap);
+  padding: 6px 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.crew-switch button .av { font-size: 20px; line-height: 1; }
+.crew-switch button.on {
+  background: var(--panel-2);
+  border-color: var(--cyan);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--cyan) inset;
+}
+
+/* ── Views ────────────────────────────────────────────────────────────────── */
+
+main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px 20px;
+}
+
+.view { display: block; }
+.hidden { display: none !important; }
+
+/* ── The duty card ────────────────────────────────────────────────────────── */
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(160deg, var(--panel-2), var(--panel));
+  padding: 20px 18px;
+  text-align: center;
+}
+
+.card .deck {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.card .icon { font-size: 56px; line-height: 1.2; margin: 10px 0 4px; }
+.card h2 { margin: 4px 0 10px; font-size: 21px; line-height: 1.3; font-weight: 600; }
+
+.meta { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.chip {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: #0b1322;
+  color: var(--dim);
+}
+.chip.pts { color: var(--cyan); border-color: #24506b; }
+.chip.hazard { color: #05070f; background: var(--amber); border-color: var(--amber); font-weight: 700; }
+
+.actions { display: grid; gap: 10px; margin-top: 16px; }
+.actions .row { display: flex; gap: 10px; }
+.actions .row button { flex: 1; }
+
+.btn {
+  min-height: 54px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--cyan);
+  color: #04121b;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.btn:active { transform: scale(0.98); }
+
+.ghost {
+  min-height: var(--tap);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--dim);
+  font-size: 14px;
+  padding: 8px 12px;
+}
+.ghost.wide { width: 100%; margin-top: 12px; }
+
+.assist { display: flex; gap: 10px; margin-top: 14px; }
+.assist button { flex: 1; }
+
+.empty { text-align: center; color: var(--dim); padding: 40px 20px; }
+.empty .big { font-size: 46px; display: block; margin-bottom: 10px; }
+
+/* ── Deck list ────────────────────────────────────────────────────────────── */
+
+.zone-title {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 16px 2px 8px;
+}
+.zone-title:first-child { margin-top: 0; }
+
+.deck {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  margin-bottom: 8px;
+}
+.deck .em { font-size: 24px; }
+.deck .body { flex: 1; min-width: 0; }
+.deck .name { font-size: 15px; font-weight: 600; }
+.deck .sub { font-size: 12px; color: var(--dim); }
+.deck .pct {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 15px;
+  min-width: 44px;
+  text-align: right;
+}
+.deck .bar { margin-top: 6px; }
+
+/* ── Crew panel ───────────────────────────────────────────────────────────── */
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.panel h3 { margin: 0 0 12px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+
+.big-num { font-family: ui-monospace, Menlo, monospace; font-size: 34px; color: var(--cyan); line-height: 1; }
+.sub-num { font-size: 13px; color: var(--dim); margin-top: 4px; }
+
+.rank-name { font-size: 20px; font-weight: 700; }
+.rank-next { font-size: 12px; color: var(--dim); margin-top: 4px; }
+
+.hit {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 700;
+  background: #10301f;
+  color: var(--green);
+  border: 1px solid #1d5c3a;
+}
+
+.hangar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.hangar div {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  border-radius: 10px;
+  background: #0a1120;
+  border: 1px solid var(--line);
+}
+.hangar div.locked { opacity: 0.18; }
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+
+.tabs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  border-top: 1px solid var(--line);
+  background: #080d18;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabs button {
+  flex: 1;
+  min-height: 58px;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+.tabs button span { font-size: 19px; line-height: 1; }
+.tabs button.active { color: var(--cyan); }
+
+/* ── Red alert ────────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: #04070ff2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 18px;
+  overflow-y: auto;
+}
+.sprint-inner { width: 100%; max-width: 480px; padding-top: env(safe-area-inset-top); }
+.sprint-head { display: flex; align-items: center; justify-content: space-between; }
+.sprint-head h2 { margin: 0; font-size: 20px; }
+.clock {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 30px;
+  color: var(--amber);
+}
+.clock.low { color: var(--red); }
+.sprint-sub { color: var(--dim); font-size: 13px; margin: 6px 0 14px; }
+
+.sprint-task {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  margin-bottom: 10px;
+  min-height: 66px;
+}
+.sprint-task .em { font-size: 26px; }
+.sprint-task .body { flex: 1; min-width: 0; }
+.sprint-task .t { font-size: 15px; font-weight: 600; }
+.sprint-task .d { font-size: 12px; color: var(--dim); }
+.sprint-task button {
+  min-width: 56px; min-height: 44px;
+  border: 0; border-radius: 10px;
+  background: var(--cyan); color: #04121b;
+  font-size: 20px; font-weight: 700;
+}
+.sprint-task.done { opacity: 0.45; }
+.sprint-task.done button { background: var(--green); }
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(74px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 20;
+  background: var(--panel-2);
+  border: 1px solid var(--cyan);
+  color: var(--text);
+  padding: 12px 18px;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: 15px;
+  box-shadow: 0 6px 24px #000a;
+  animation: pop 0.25s ease;
+  max-width: 90vw;
+  text-align: center;
+}
+@keyframes pop {
+  from { transform: translateX(-50%) scale(0.85); opacity: 0; }
+  to   { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+/* ── Cadet mode: bigger, wordier things removed ───────────────────────────── */
+
+body.simple .card .icon { font-size: 92px; }
+body.simple .card h2 { font-size: 26px; }
+body.simple .btn { min-height: 66px; font-size: 20px; }
+body.simple .chip.mins,
+body.simple .chip.tier { display: none; }
+body.simple .deck .pct { display: none; }
+body.simple .deck .sub { display: none; }
+body.simple .deck .name { font-size: 17px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

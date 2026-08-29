@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05070f">
+<title>Ship Shape</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="hud">
+  <div class="hud-row">
+    <div class="ship-stat">
+      <span class="label">Ship integrity</span>
+      <strong id="ship-pct">—</strong>
+    </div>
+    <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙</button>
+  </div>
+  <div class="bar bar-ship"><span id="ship-bar"></span></div>
+  <div id="crew-switch" class="crew-switch"></div>
+</header>
+
+<main>
+  <!-- Duty: the one-card screen -->
+  <section id="view-duty" class="view">
+    <div id="card-slot"></div>
+    <div class="assist">
+      <button id="btn-rescue" class="ghost">🆘 <span>Smallest job</span></button>
+      <button id="btn-alert" class="ghost">🚨 <span>Red alert</span></button>
+    </div>
+  </section>
+
+  <!-- Ship: deck integrity -->
+  <section id="view-ship" class="view hidden">
+    <div id="deck-list"></div>
+  </section>
+
+  <!-- Crew: scores, rank, hangar -->
+  <section id="view-crew" class="view hidden">
+    <div id="crew-panel"></div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-view="duty" class="active"><span>🎯</span>Duty</button>
+  <button data-view="ship"><span>🛰️</span>Ship</button>
+  <button data-view="crew"><span>🎖️</span>Crew</button>
+</nav>
+
+<!-- Red alert drill -->
+<div id="sprint" class="overlay hidden">
+  <div class="sprint-inner">
+    <div class="sprint-head">
+      <h2>🚨 Red Alert</h2>
+      <div id="sprint-clock" class="clock">15:00</div>
+    </div>
+    <p class="sprint-sub">Damage control drill. Clear all three before the clock runs out for a bonus.</p>
+    <div id="sprint-list"></div>
+    <button id="sprint-end" class="ghost wide">Stand down</button>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
