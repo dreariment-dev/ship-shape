@@ -235,6 +235,34 @@ function endOfToday() {
   return d.getTime();
 }
 
+// ── Resets ──────────────────────────────────────────────────────────────────
+
+/**
+ * Put the ship into a known state. Names the crew have set are always kept —
+ * losing "Commander Alfie's Quarters" to a reset would be its own small
+ * tragedy — as is which crew member is signed in.
+ *
+ *   fresh  — a new voyage: duties staggered as they are on first install
+ *   due    — nothing done, every duty fully overdue, ship at 0%
+ *   clean  — everything just done, ship at 100%
+ *   scores — keep the ship as it is, wipe merit and droids back to zero
+ */
+function resetShip(mode) {
+  const now = Date.now();
+  if (mode !== 'scores') {
+    DUTIES.forEach((d) => {
+      const span = d.days * DAY;
+      const age =
+        mode === 'clean' ? 0
+        : mode === 'due' ? span * 2 // dueness 2.0 — nothing done, nothing fresh
+        : span * (0.3 + Math.random() * 0.9);
+      state.duties[d.id] = { last: now - age, skips: 0, snooze: 0 };
+    });
+  }
+  state.log = [];
+  save();
+}
+
 // ── Scores ──────────────────────────────────────────────────────────────────
 
 function weekStart() {

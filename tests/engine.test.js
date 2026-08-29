@@ -410,6 +410,71 @@ run('bonus entries score but do not count as duties', () => {
   assert.strictEqual(res.duties, 0, 'a drill bonus should not award a droid');
 });
 
+run('reset: nothing done leaves the ship at zero and everything available', () => {
+  const res = ctx(`
+    (() => {
+      load();
+      resetShip('due');
+      const seen = new Set();
+      for (let i = 0; i < 6000; i++) { const d = draw('adult'); if (d) seen.add(d.id); }
+      return {
+        integrity: shipIntegrity(),
+        merit: weekTotal('adult'),
+        allOverdue: DUTIES.every(d => dueness(d.id) >= 1.5),
+        reachable: seen.size,
+        // Not the whole roster: the Cadet's night watch is who:['k5'], so no
+        // amount of overdue makes it an adult's job.
+        adultCapable: DUTIES.filter(d => d.who.includes('adult')).length,
+      };
+    })()`);
+  assert.strictEqual(res.integrity, 0, `ship should be at 0%, got ${res.integrity}`);
+  assert.strictEqual(res.merit, 0);
+  assert.strictEqual(res.allOverdue, true, 'not every duty came out overdue');
+  // Everything is past first refusal, so nothing is held back on ownership.
+  assert.strictEqual(
+    res.reachable,
+    res.adultCapable,
+    `only ${res.reachable} of ${res.adultCapable} adult-capable duties reachable`
+  );
+});
+
+run('reset: everything done leaves the ship spotless', () => {
+  const res = ctx(`
+    (() => { load(); resetShip('clean'); return { integrity: shipIntegrity(), merit: weekTotal('adult') }; })()`);
+  assert.strictEqual(res.integrity, 1, `ship should be at 100%, got ${res.integrity}`);
+  assert.strictEqual(res.merit, 0);
+});
+
+run('reset: wiping merit leaves the ship untouched', () => {
+  const res = ctx(`
+    (() => {
+      load();
+      const before = shipIntegrity();
+      complete(draw('adult').id, 'adult');
+      const mid = shipIntegrity();
+      resetShip('scores');
+      return { mid, after: shipIntegrity(), merit: weekTotal('adult'), droids: countSince('k5', 0) };
+    })()`);
+  assert.strictEqual(res.merit, 0, 'merit survived a score wipe');
+  assert.strictEqual(res.droids, 0, 'droids survived a score wipe');
+  assert.strictEqual(res.after, res.mid, 'wiping scores should not move ship integrity');
+});
+
+run('reset: renames and the signed-in crew member survive', () => {
+  const res = ctx(`
+    (() => {
+      load();
+      state.deckNames.bunkc = 'Alfie';
+      state.crewNames.k5 = 'Alfie';
+      state.activeCrew = 'k5';
+      ['due','fresh','clean','scores'].forEach(m => resetShip(m));
+      return { deck: state.deckNames.bunkc, crew: state.crewNames.k5, active: state.activeCrew };
+    })()`);
+  assert.strictEqual(res.deck, 'Alfie', 'a renamed deck was lost to a reset');
+  assert.strictEqual(res.crew, 'Alfie', 'a renamed crew member was lost to a reset');
+  assert.strictEqual(res.active, 'k5', 'the signed-in crew member was lost to a reset');
+});
+
 run('a corrupt save does not brick the app', () => {
   store.set('shipshape.v1', '{not json');
   ctx('load()');

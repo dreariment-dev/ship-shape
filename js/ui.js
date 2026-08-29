@@ -381,6 +381,41 @@ function endSprint() {
 
 // ── Settings ────────────────────────────────────────────────────────────────
 
+const RESETS = [
+  {
+    id: 'due',
+    icon: '🧨',
+    label: 'Nothing done',
+    hint: 'Every duty overdue, ship at 0% — good for having a play',
+    confirm: 'Every duty is marked undone and all merit is wiped.',
+    done: '🧨 Nothing done. Everything is on the table.',
+  },
+  {
+    id: 'fresh',
+    icon: '🚀',
+    label: 'New voyage',
+    hint: 'Duties staggered as they are on a fresh install',
+    confirm: 'The ship goes back to how it looked on day one and all merit is wiped.',
+    done: '🚀 New voyage. Good luck out there.',
+  },
+  {
+    id: 'clean',
+    icon: '✨',
+    label: 'Everything done',
+    hint: 'Whole ship spotless at 100%',
+    confirm: 'Every duty is marked just-done and all merit is wiped.',
+    done: '✨ Spotless. It will not last.',
+  },
+  {
+    id: 'scores',
+    icon: '🎖️',
+    label: 'Wipe merit only',
+    hint: 'Leaves the ship as it is, resets scores and droids to zero',
+    confirm: 'All merit, ranks and droids go to zero. The ship itself is untouched.',
+    done: '🎖️ Merit wiped. The ship is as you left it.',
+  },
+];
+
 function openSettings() {
   const rows = [
     '<h3 style="margin:18px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)">Crew</h3>',
@@ -395,9 +430,29 @@ function openSettings() {
         <div class="sprint-head"><h2>⚙ Ship's log</h2></div>
         <p class="sprint-sub">Tap a name to rename it. Make the quarters theirs — it matters more than you'd think.</p>
         ${rows}
+
+        <h3 style="margin:22px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)">Reset</h3>
+        <p class="sprint-sub" style="margin-top:0">Names you've set are always kept. Everything else goes.</p>
+        ${RESETS.map(
+          (r) => `<button class="ghost wide danger" data-reset="${r.id}">${r.icon} ${r.label}<span class="hint">${r.hint}</span></button>`
+        ).join('')}
+
         <button class="ghost wide" id="close" style="margin-top:22px">Close</button>
       </div>
     </div>`);
+
+  ov.querySelectorAll('[data-reset]').forEach((b) => {
+    b.onclick = () => {
+      const r = RESETS.find((x) => x.id === b.dataset.reset);
+      if (!confirm(`${r.label}\n\n${r.confirm}\n\nThis can't be undone.`)) return;
+      resetShip(r.id);
+      card = null;
+      seenThisSession = [];
+      ov.remove();
+      switchView('duty');
+      toast(r.done, 3000);
+    };
+  });
 
   ov.querySelectorAll('[data-kind]').forEach((b) => {
     b.onclick = () => {
