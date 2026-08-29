@@ -136,7 +136,9 @@ function canAccess(crewId, deckId) {
  * until it's well past due and somebody has to step in.
  */
 function heldForOwner(crewId, d) {
-  const owners = deckById[d.deck].owners;
+  // A duty can name its own owners, which wins over the deck's — that's how a
+  // shared room can still contain somebody's personal standing order.
+  const owners = d.owners ?? deckById[d.deck].owners;
   if (!owners || owners.includes(crewId)) return false;
   // Held only if an owner could actually do it — the adult-only jobs in a
   // child's room were never theirs to begin with.

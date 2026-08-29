@@ -4,16 +4,22 @@
 
 // Cadence drives everything: how fast a duty goes stale, and what it pays.
 const TIERS = {
+  daily:    { days: 1,  pts: 5,   label: 'Daily' },
   often:    { days: 3,  pts: 10,  label: 'Routine' },
   weekly:   { days: 7,  pts: 25,  label: 'Scheduled' },
   monthly:  { days: 30, pts: 50,  label: 'Overhaul' },
   seasonal: { days: 90, pts: 100, label: 'Drydock' },
 };
 
+// target is merit per week and drives rank and the crew standing. `goal` is
+// what a simple-mode crew member actually sees — a count of droids, because a
+// five-year-old can count droids and cannot read a points total. It's set
+// deliberately above what the daily standing orders alone would earn (14/week),
+// so consistency gets you most of the way but not all of it.
 const CREW = [
-  { id: 'adult', name: 'Captain',  emoji: '🧑‍🚀', target: 500, mode: 'full'  },
+  { id: 'adult', name: 'Captain',   emoji: '🧑‍🚀', target: 500, mode: 'full'  },
   { id: 'k9',    name: 'Commander', emoji: '🫡',   target: 200, mode: 'full'  },
-  { id: 'k5',    name: 'Cadet',    emoji: '👾',   target: 60,  mode: 'simple' },
+  { id: 'k5',    name: 'Cadet',     emoji: '👾',   target: 90,  mode: 'simple', goal: 16 },
 ];
 
 // Rank thresholds are multiples of a crew member's own weekly target, so the
@@ -79,6 +85,11 @@ const ADULT = ['adult'];
 // are disproportionately grim for their frequency (stair spindles, the oven).
 const DUTIES = [
   // ── Galley ────────────────────────────────────────────────────────────────
+  // The Galley is shared ground, but these two are the children's own standing
+  // orders: their stuff, their job to shift it. Duty-level owners override the
+  // deck's, so first refusal applies to these without reserving the whole room.
+  { deck: 'galley', name: 'Your things off the island', icon: '🧸', tier: 'daily', mins: 3, who: ALL, owners: ['k9', 'k5'] },
+  { deck: 'galley', name: 'Clear the table',          icon: '🍽️', tier: 'daily',    mins: 3,  who: ALL, owners: ['k9', 'k5'] },
   { deck: 'galley', name: 'Sweep the galley floor',   icon: '🧹', tier: 'often',    mins: 5,  who: ALL },
   { deck: 'galley', name: 'Stow anything that lives elsewhere', icon: '📦', tier: 'often', mins: 3, who: ALL },
   { deck: 'galley', name: 'Wipe down the worktops',   icon: '🧽', tier: 'often',    mins: 5,  who: GROWN },

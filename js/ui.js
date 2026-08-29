@@ -236,7 +236,7 @@ function renderCrew() {
 
   if (isSimple()) {
     const done = countSince(id, weekStart());
-    const goal = Math.max(1, Math.round(target / 10));
+    const goal = crew().goal;
     wrap.append(el(`
       <div class="panel">
         <h3>This week</h3>

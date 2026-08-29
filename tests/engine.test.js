@@ -142,6 +142,55 @@ run('the adult still backstops a bedroom left to rot', () => {
   assert.strictEqual(reached, true, 'a rotting bedroom never reaches the adult');
 });
 
+run("the children's standing orders in the Galley are held for them", () => {
+  // The island and the table are their stuff to shift, even though the Galley
+  // itself is shared — duty-level owners must override the deck's.
+  const res = ctx(`
+    (() => {
+      load();
+      DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
+      const orders = DUTIES.filter(d => d.owners).map(d => d.id);
+      const seen = new Set();
+      for (let i = 0; i < 4000; i++) { const d = draw('adult'); if (d) seen.add(d.id); }
+      return {
+        orders: orders.length,
+        leaked: orders.filter(id => seen.has(id)),
+        galleyStillOpen: [...seen].some(id => dutyById[id].deck === 'galley'),
+      };
+    })()`);
+  assert.strictEqual(res.orders, 2, 'expected exactly two duty-level standing orders');
+  assert.strictEqual(res.leaked.length, 0, `adult was offered: ${[...res.leaked].join(', ')}`);
+  assert.strictEqual(res.galleyStillOpen, true, 'reserving two duties closed the whole Galley');
+});
+
+run('both children can be dealt their Galley standing orders', () => {
+  ['k9', 'k5'].forEach((id) => {
+    const ok = ctx(`
+      (() => {
+        load();
+        DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
+        const orders = DUTIES.filter(d => d.owners).map(d => d.id);
+        for (let i = 0; i < 3000; i++) { const d = draw('${id}'); if (d && orders.includes(d.id)) return true; }
+        return false;
+      })()`);
+    assert.strictEqual(ok, true, `${id} cannot be dealt their own standing orders`);
+  });
+});
+
+run('a standing order left undone still reaches the adult', () => {
+  const reached = ctx(`
+    (() => {
+      load();
+      DUTIES.filter(d => d.owners).forEach(d => {
+        state.duties[d.id].last = Date.now() - d.days * 86400000 * 3;
+      });
+      const orders = DUTIES.filter(d => d.owners).map(d => d.id);
+      for (let i = 0; i < 3000; i++) { const d = draw('adult'); if (d && orders.includes(d.id)) return true; }
+      return false;
+    })()`);
+  assert.strictEqual(reached, true, 'a neglected standing order never reaches the adult');
+});
+
 run('the Galley stays open to everyone', () => {
   // The only deck with no owner — anyone can be dealt it at any time.
   const reached = ctx(`
@@ -198,6 +247,33 @@ run('a child is never blocked from their own room', () => {
       return false;
     })()`);
   assert.strictEqual(ok, true, 'the Cadet cannot reach their own quarters');
+});
+
+run('daily standing orders cannot carry a week on their own', () => {
+  // Doing only the table and the island every day is good, but it shouldn't
+  // complete the week by itself or the rest of the roster is decoration.
+  const res = ctx(`
+    CREW.filter(c => c.goal).map(c => {
+      const orders = DUTIES.filter(d => d.owners && d.owners.includes(c.id));
+      return { id: c.id, goal: c.goal, ordersPerWeek: orders.reduce((a, d) => a + 7 / d.days, 0) };
+    })`);
+  [...res].forEach((r) => {
+    assert.ok(
+      r.ordersPerWeek < r.goal,
+      `${r.id}: standing orders give ${r.ordersPerWeek}/week against a goal of ${r.goal}`
+    );
+  });
+});
+
+run('a simple-mode goal is reachable within the available pool', () => {
+  const res = ctx(`
+    CREW.filter(c => c.goal).map(c => {
+      const pool = DUTIES.filter(d => canAccess(c.id, d.deck) && d.who.includes(c.id));
+      return { id: c.id, goal: c.goal, perWeek: Math.round(pool.reduce((a, d) => a + 7 / d.days, 0)) };
+    })`);
+  [...res].forEach((r) => {
+    assert.ok(r.perWeek >= r.goal * 1.3, `${r.id}: only ${r.perWeek} completions/week available for a goal of ${r.goal}`);
+  });
 });
 
 run('every crew member can still reach their weekly target', () => {
