@@ -442,6 +442,79 @@ function renderShip() {
 
 // ── Crew view ───────────────────────────────────────────────────────────────
 
+const fmtDate = (ts) =>
+  new Date(ts).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+/**
+ * Past weeks, so a good run is visible rather than evaporating every Friday.
+ * A won week is measured by whatever that crew member is actually chasing —
+ * droids for the Cadet, merit for everyone else.
+ */
+function historyPanel(crewId) {
+  const weeks = pastWeeks(8);
+  const all = allTime();
+  const me = all.crew[crewId];
+  const c = crewById(crewId);
+  const t = trackFor(crewId);
+
+  const rows = weeks.length
+    ? weeks
+        .map((w) => {
+          const r = w.crew[crewId];
+          const won = c.goal ? r.hitGoal : r.hitTarget;
+          const score = c.goal ? `${r.duties} droids` : `${r.merit}`;
+          return `<div class="hrow">
+            <span class="wk">${fmtDate(w.start)}</span>
+            <span class="sc">${score}</span>
+            ${t ? `<span class="tk">${t.icon} ${r.track}</span>` : '<span class="tk"></span>'}
+            <span class="wn">${won ? '🏅' : '—'}</span>
+          </div>`;
+        })
+        .join('')
+    : '<div class="sub-num">No completed weeks yet — the first turns over on Friday morning.</div>';
+
+  return el(`
+    <div class="panel">
+      <h3>Past weeks</h3>
+      <div class="hgrid">
+        <div class="hrow head">
+          <span class="wk">Week from</span>
+          <span class="sc">${c.goal ? 'Droids' : 'Merit'}</span>
+          <span class="tk">${t ? t.unit : ''}</span>
+          <span class="wn">Won</span>
+        </div>
+        ${rows}
+      </div>
+      <div class="sub-num" style="margin-top:12px">
+        All time: <strong style="color:var(--text)">${me.merit}</strong> merit over
+        <strong style="color:var(--text)">${me.duties}</strong> duties${
+          t ? `, <strong style="color:var(--text)">${me.track}</strong> ${t.unit}` : ''
+        } · <strong style="color:var(--text)">${me.weeksWon}</strong> week${me.weeksWon === 1 ? '' : 's'} won
+      </div>
+    </div>`);
+}
+
+/** The household's own running total, shown to whoever is signed in. */
+function householdPanel() {
+  const all = allTime();
+  return el(`
+    <div class="panel">
+      <h3>The whole crew</h3>
+      <div class="big-num">${all.total}</div>
+      <div class="sub-num">merit earned between you, all time${
+        all.weeks ? ` · ${all.weeks} week${all.weeks === 1 ? '' : 's'} on the books` : ''
+      }</div>
+      ${CREW.map((c) => {
+        const r = all.crew[c.id];
+        const share = all.total ? Math.round((r.merit / all.total) * 100) : 0;
+        return `<div style="margin-top:10px">
+          <div class="sub-num">${c.emoji} ${crewName(c.id)} — ${r.merit} merit · ${r.weeksWon} won</div>
+          <div class="bar good"><span style="width:${share}%"></span></div>
+        </div>`;
+      }).join('')}
+    </div>`);
+}
+
 /** The personal track as a peer of the chore reward, not a footnote to it. */
 function trackPanel(crewId) {
   const t = trackFor(crewId);
@@ -523,6 +596,8 @@ function renderCrew() {
         </div>
         <div class="sub-num">${Math.min(done, goal)} of ${goal} aboard this week${crews ? ` · ${crews} crew${crews > 1 ? 's' : ''} rescued so far` : ''}</div>
       </div>`));
+
+    wrap.append(historyPanel(id));
     return;
   }
 
@@ -573,6 +648,9 @@ function renderCrew() {
         </div>`;
       }).join('')}
     </div>`));
+
+  wrap.append(historyPanel(id));
+  wrap.append(householdPanel());
 }
 
 // ── Red alert ───────────────────────────────────────────────────────────────

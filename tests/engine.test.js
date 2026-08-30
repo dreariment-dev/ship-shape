@@ -697,6 +697,92 @@ run('a reset clears any open missions', () => {
   assert.strictEqual(open, false, 'a mission survived a reset');
 });
 
+run('the week turns over on Friday morning', () => {
+  const res = ctx(`
+    (() => {
+      const at = (iso) => { const s = weekStart(new Date(iso).getTime()); const d = new Date(s);
+        return { day: d.getDay(), hour: d.getHours(), iso: d.toISOString() }; };
+      return {
+        // Thursday evening still belongs to the week being judged.
+        thu: at('2026-09-03T21:00:00'),
+        // Friday before the turn is still the old week.
+        friEarly: at('2026-09-04T06:59:00'),
+        // Friday after the turn starts the new one.
+        friLate: at('2026-09-04T07:01:00'),
+        sun: at('2026-09-06T12:00:00'),
+      };
+    })()`);
+  [res.thu, res.friEarly, res.friLate, res.sun].forEach((r) => {
+    assert.strictEqual(r.day, 5, `week should start on a Friday, got day ${r.day}`);
+    assert.strictEqual(r.hour, 7, `week should start at 07:00, got ${r.hour}`);
+  });
+  assert.strictEqual(res.thu.iso, res.friEarly.iso, 'Thursday night and Friday 6am should share a week');
+  assert.notStrictEqual(res.friEarly.iso, res.friLate.iso, 'the Friday turn did not start a new week');
+  assert.strictEqual(res.friLate.iso, res.sun.iso, 'Friday after the turn and Sunday should share a week');
+});
+
+run('history is derived from the log, week by week', () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const wk = weekStart();
+      const WEEK = 7 * 86400000;
+      // Three completed weeks back, with a known score each.
+      [1, 2, 3].forEach(n => {
+        for (let i = 0; i < n; i++) {
+          state.log.push({ t: wk - n * WEEK + 3600000, crew: 'k9', duty: 'x', pts: 100 });
+        }
+      });
+      // Something this week, which must not appear in past weeks.
+      state.log.push({ t: Date.now(), crew: 'k9', duty: 'x', pts: 999 });
+      const past = pastWeeks(8);
+      return {
+        n: past.length,
+        scores: past.map(w => w.crew.k9.merit),
+        hasCurrent: past.some(w => w.crew.k9.merit === 999),
+        allTime: allTime().crew.k9.merit,
+      };
+    })()`);
+  assert.strictEqual(res.n, 3, `expected 3 completed weeks, got ${res.n}`);
+  // Newest first: one week ago scored 100, two ago 200, three ago 300.
+  assert.deepStrictEqual([...res.scores], [100, 200, 300], `got ${[...res.scores].join(', ')}`);
+  assert.strictEqual(res.hasCurrent, false, 'the current week leaked into history');
+  assert.strictEqual(res.allTime, 1599, `all-time should include this week, got ${res.allTime}`);
+});
+
+run('a won week is judged by what that crew member chases', () => {
+  // The Cadet wins on droids, everyone else on merit — the history has to use
+  // the same rule the weekly panel does, or the two disagree.
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const wk = weekStart() - 7 * 86400000;
+      const c5 = CREW.find(c => c.id === 'k5');
+      for (let i = 0; i < c5.goal; i++) state.log.push({ t: wk + 1000, crew: 'k5', duty: 'x', pts: 1 });
+      const w = pastWeeks(2)[0];
+      return { duties: w.crew.k5.duties, hitGoal: w.crew.k5.hitGoal, hitTarget: w.crew.k5.hitTarget,
+               weeksWon: allTime().crew.k5.weeksWon };
+    })()`);
+  assert.strictEqual(res.hitGoal, true, 'hitting the droid goal was not recorded as a win');
+  assert.strictEqual(res.hitTarget, false, 'merit target should not have been met on 1-point duties');
+  assert.strictEqual(res.weeksWon, 1, 'the won week was not counted for a goal-based crew member');
+});
+
+run('track ticks are counted separately in history', () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const wk = weekStart() - 7 * 86400000;
+      state.log.push({ t: wk + 1000, crew: 'k9', duty: 'x', pts: 50 });
+      state.log.push({ t: wk + 2000, crew: 'k9', duty: 'y', pts: 0, track: 'research' });
+      const w = pastWeeks(2)[0].crew.k9;
+      return w;
+    })()`);
+  assert.strictEqual(res.merit, 50, 'a track tick leaked into merit');
+  assert.strictEqual(res.duties, 1, 'a track tick was counted as a duty');
+  assert.strictEqual(res.track, 1, 'the track tick was not counted');
+});
+
 run('a corrupt save does not brick the app', () => {
   store.set('shipshape.v1', '{not json');
   ctx('load()');

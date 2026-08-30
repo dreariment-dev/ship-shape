@@ -353,13 +353,23 @@ function resetShip(mode) {
 
 // ── Scores ──────────────────────────────────────────────────────────────────
 
-function weekStart() {
-  const d = new Date();
-  const back = (d.getDay() + 6) % 7; // weeks run Monday to Sunday
-  d.setDate(d.getDate() - back);
-  d.setHours(0, 0, 0, 0);
+// The week turns over on Friday morning, because that's when the scores are
+// read and the treat is decided. Thursday evening's work still counts to the
+// week being judged; anything after the turn starts the next one.
+const WEEK_DAY = 5; // Friday
+const WEEK_HOUR = 7;
+
+function weekStart(ref = Date.now()) {
+  const d = new Date(ref);
+  d.setDate(d.getDate() - ((d.getDay() - WEEK_DAY + 7) % 7));
+  d.setHours(WEEK_HOUR, 0, 0, 0);
+  // Landing after `ref` means we're before this morning's turn — the week
+  // that counts is still the previous one.
+  if (d.getTime() > ref) d.setDate(d.getDate() - 7);
   return d.getTime();
 }
+
+const WEEK_MS = 7 * DAY;
 
 function monthStart() {
   const d = new Date();
@@ -419,6 +429,85 @@ const countSince = (crewId, since) =>
 
 function crewById(id) {
   return CREW.find((c) => c.id === id);
+}
+
+// ── History ─────────────────────────────────────────────────────────────────
+//
+// Past weeks are derived from the log rather than snapshotted at rollover.
+// Every entry already carries a timestamp, so there's nothing to archive, no
+// rollover job to miss, and no stored figure that can drift from the record
+// it was meant to summarise.
+
+function between(crewId, from, to, opts = {}) {
+  return state.log.filter(
+    (e) =>
+      e.crew === crewId &&
+      e.t >= from &&
+      e.t < to &&
+      (opts.track ? e.track === opts.track : !e.track)
+  );
+}
+
+/** One week's figures for the whole crew, plus a household total. */
+function weekSummary(start) {
+  const end = start + WEEK_MS;
+  const crew = {};
+  let total = 0;
+  CREW.forEach((c) => {
+    const done = between(c.id, start, end);
+    const merit = done.reduce((a, e) => a + e.pts, 0);
+    const t = trackFor(c.id);
+    crew[c.id] = {
+      merit,
+      duties: done.filter((e) => !e.duty.startsWith('bonus:')).length,
+      track: t ? between(c.id, start, end, { track: t.id }).length : 0,
+      hitTarget: merit >= c.target,
+      hitGoal: c.goal ? done.filter((e) => !e.duty.startsWith('bonus:')).length >= c.goal : null,
+      hitTrack: t ? between(c.id, start, end, { track: t.id }).length >= t.goal : null,
+    };
+    total += merit;
+  });
+  return { start, end, crew, total };
+}
+
+/** Completed weeks, newest first. The current week is excluded — it isn't over. */
+function pastWeeks(n = 8) {
+  if (!state.log.length) return [];
+  const first = Math.min(...state.log.map((e) => e.t));
+  const out = [];
+  let s = weekStart() - WEEK_MS;
+  while (out.length < n && s + WEEK_MS > first) {
+    out.push(weekSummary(s));
+    s -= WEEK_MS;
+  }
+  return out;
+}
+
+/** Everything, all time — per person and household. */
+function allTime() {
+  const crew = {};
+  let total = 0;
+  CREW.forEach((c) => {
+    const done = between(c.id, 0, Infinity);
+    const merit = done.reduce((a, e) => a + e.pts, 0);
+    const t = trackFor(c.id);
+    crew[c.id] = {
+      merit,
+      duties: done.filter((e) => !e.duty.startsWith('bonus:')).length,
+      track: t ? between(c.id, 0, Infinity, { track: t.id }).length : 0,
+      weeksWon: 0,
+    };
+    total += merit;
+  });
+  // Weeks won needs the week-by-week view, so count it once over all of them.
+  pastWeeks(520).forEach((w) =>
+    CREW.forEach((c) => {
+      const r = w.crew[c.id];
+      const won = c.goal ? r.hitGoal : r.hitTarget;
+      if (won) crew[c.id].weeksWon++;
+    })
+  );
+  return { crew, total, weeks: pastWeeks(520).length };
 }
 
 /** Rank is measured in weeks-of-your-own-target, so everyone climbs alike. */
