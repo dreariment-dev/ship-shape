@@ -46,6 +46,7 @@ function seed() {
     deckNames: Object.fromEntries(DECKS.map((d) => [d.id, d.name])),
     duties,
     log: [],
+    missions: {},
     activeCrew: 'adult',
   };
 }
@@ -67,6 +68,7 @@ function reconcileRoster() {
   // Backfill per entry rather than per object: a save from an earlier release
   // has a names map, just one missing the decks added since. Existing entries
   // are left alone so the crew's own renames survive an update.
+  state.missions ??= {};
   state.crewNames ??= {};
   state.deckNames ??= {};
   CREW.forEach((c) => { state.crewNames[c.id] ??= c.name; });
@@ -206,6 +208,55 @@ function drawSprint(crewId, n = 3) {
   return picked;
 }
 
+// ── Missions ────────────────────────────────────────────────────────────────
+//
+// A duty is accepted before it's done, and one at a time — the accepted card
+// is the whole of what you're being asked for. Children's missions then need
+// signing off by an adult, which is the only check on the obvious problem
+// with letting a five-year-old mark their own homework.
+
+const needsSignOff = (crewId) => crewId !== 'adult';
+
+function activeMission(crewId) {
+  const m = state.missions?.[crewId];
+  return m && dutyById[m.duty] ? m : null;
+}
+
+function acceptMission(crewId, dutyId) {
+  state.missions ??= {};
+  state.missions[crewId] = { duty: dutyId, at: Date.now() };
+  save();
+}
+
+/** Handed back with no penalty — an abandoned job isn't a ducked one. */
+function abandonMission(crewId) {
+  if (state.missions) delete state.missions[crewId];
+  save();
+}
+
+/** Everyone waiting on an adult, oldest first. */
+function pendingSignOff() {
+  return Object.entries(state.missions ?? {})
+    .filter(([crewId, m]) => needsSignOff(crewId) && m && dutyById[m.duty])
+    .map(([crewId, m]) => ({ crewId, ...m }))
+    .sort((a, b) => a.at - b.at);
+}
+
+/** Approve: the merit goes to whoever did the work, not whoever signed it. */
+function signOff(crewId) {
+  const m = activeMission(crewId);
+  if (!m) return 0;
+  const pts = complete(m.duty, crewId);
+  delete state.missions[crewId];
+  save();
+  return pts;
+}
+
+/** Sent back: not done, but not counted as ducked either. */
+function sendBack(crewId) {
+  abandonMission(crewId);
+}
+
 // ── Actions ─────────────────────────────────────────────────────────────────
 
 function complete(dutyId, crewId, bonus = 1) {
@@ -263,6 +314,7 @@ function resetShip(mode) {
     });
   }
   state.log = [];
+  state.missions = {};
   save();
 }
 

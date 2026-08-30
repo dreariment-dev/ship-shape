@@ -77,9 +77,92 @@ function renderHud() {
 
 // ── Duty card ───────────────────────────────────────────────────────────────
 
+/** The accepted mission, replacing the draw until it's resolved. */
+function renderMission(m) {
+  const slot = $('#card-slot');
+  const d = dutyById[m.duty];
+  const waiting = needsSignOff(state.activeCrew);
+  const pts = value(d.id);
+
+  const c = el(`
+    <div class="card onmission">
+      <div class="deck">On mission · ${deckName(d.deck)}</div>
+      <div class="icon">${d.icon}</div>
+      <h2>${d.name}</h2>
+      <div class="meta">${
+        isSimple()
+          ? '<span class="chip pts">🤖 Rescue a droid</span>'
+          : `<span class="chip pts">${pts} merit</span><span class="chip mins">~${d.mins} min</span>`
+      }</div>
+      <div class="actions">
+        ${waiting
+          ? `<div class="await">🫡 Tell the ${crewName('adult')} when it's done<span>They'll sign it off</span></div>`
+          : '<button class="btn" id="done">Mark it done</button>'}
+        <div class="row"><button class="ghost" id="drop">Hand it back</button></div>
+      </div>
+    </div>`);
+  slot.append(c);
+
+  if (!waiting) {
+    c.querySelector('#done').onclick = () => {
+      const got = signOff(state.activeCrew) || complete(d.id, state.activeCrew);
+      abandonMission(state.activeCrew);
+      toast(`+${got} merit — ${deckName(d.deck)} restored`);
+      card = null;
+      renderAll();
+    };
+  }
+  c.querySelector('#drop').onclick = () => {
+    abandonMission(state.activeCrew);
+    card = null;
+    renderAll();
+    toast('Handed back. No harm done.');
+  };
+}
+
+/** Missions waiting on an adult — only ever shown to an adult. */
+function renderSignOff() {
+  const host = $('#signoff-slot');
+  host.innerHTML = '';
+  if (needsSignOff(state.activeCrew)) return;
+  const pending = pendingSignOff();
+  if (!pending.length) return;
+
+  const box = el(`<div class="signoff"><h3>Waiting on you</h3></div>`);
+  pending.forEach((p) => {
+    const d = dutyById[p.duty];
+    const cw = crewById(p.crewId);
+    const row = el(`
+      <div class="so-row">
+        <span class="em">${d.icon}</span>
+        <div class="body">
+          <div class="t">${d.name}</div>
+          <div class="s">${cw.emoji} ${crewName(p.crewId)} · ${deckName(d.deck)}</div>
+        </div>
+        <button class="ok">✓</button>
+        <button class="no">✕</button>
+      </div>`);
+    row.querySelector('.ok').onclick = () => {
+      const pts = signOff(p.crewId);
+      toast(`✅ ${crewName(p.crewId)} earned ${pts} merit`);
+      renderAll();
+    };
+    row.querySelector('.no').onclick = () => {
+      sendBack(p.crewId);
+      toast(`Sent back to ${crewName(p.crewId)}.`);
+      renderAll();
+    };
+    box.append(row);
+  });
+  host.append(box);
+}
+
 function renderCard() {
   const slot = $('#card-slot');
   slot.innerHTML = '';
+
+  const m = activeMission(state.activeCrew);
+  if (m) return renderMission(m);
 
   // Swapping repeatedly shouldn't strand you on "nothing to do" — once the
   // excluded list has eaten the pool, let the earlier cards back in.
@@ -120,7 +203,7 @@ function renderCard() {
       <h2>${card.name}</h2>
       <div class="meta">${chips}</div>
       <div class="actions">
-        <button class="btn" id="do">${isSimple() ? '✅ Done!' : 'Complete duty'}</button>
+        <button class="btn" id="do">${isSimple() ? '👍 I\'ll do it!' : 'Accept mission'}</button>
         <div class="row">
           <button class="ghost" id="swap">🔄 ${isSimple() ? 'Another one' : 'Swap'}</button>
           <button class="ghost" id="later">🌙 Not today</button>
@@ -129,7 +212,12 @@ function renderCard() {
     </div>`);
   slot.append(c);
 
-  c.querySelector('#do').onclick = () => doComplete(card);
+  c.querySelector('#do').onclick = () => {
+    acceptMission(state.activeCrew, card.id);
+    card = null;
+    seenThisSession = [];
+    renderAll();
+  };
   c.querySelector('#swap').onclick = () => {
     swap(card.id);
     seenThisSession.push(card.id);
@@ -249,6 +337,9 @@ function openDeck(deckId) {
   const canDo = eligible(state.activeCrew).map((d) => d.id);
   const mine = all.filter((d) => canDo.includes(d.id));
   const theirs = all.filter((d) => !canDo.includes(d.id));
+  // One mission at a time is the point — the accepted card is the whole of
+  // what you're being asked for.
+  const busy = !!activeMission(state.activeCrew);
 
   const line = (d, actionable) => {
     const st = dutyState(d.id);
@@ -270,7 +361,7 @@ function openDeck(deckId) {
             actionable && !isSimple() ? ` · ${value(d.id)} merit` : ''
           }${haz > 1 && actionable ? ` · ⚠ ×${+haz.toFixed(2)}` : ''}${why ? ` · ${why}` : ''}</div>
         </div>
-        ${actionable ? '<button class="do">Do</button>' : ''}
+        ${actionable ? `<button class="do"${busy ? ' disabled' : ''}>Take</button>` : ''}
       </div>`;
   };
 
@@ -283,6 +374,8 @@ function openDeck(deckId) {
         </div>
         <p class="sprint-sub">${deck.sub} · ${STATUS[band(pct)]}</p>
         <div class="bar ${band(pct)}" style="margin-bottom:16px"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
+
+        ${busy ? '<p class="sprint-sub" style="color:var(--amber)">You\'re already on a mission — finish or hand it back first.</p>' : ''}
 
         ${mine.length
           ? `<h3 class="seg">Yours to do here</h3>${mine.map((d) => line(d, true)).join('')}`
@@ -299,9 +392,10 @@ function openDeck(deckId) {
   ov.querySelectorAll('.dutyline .do').forEach((b) => {
     b.onclick = () => {
       const id = b.closest('.dutyline').dataset.id;
-      doComplete(dutyById[id]);
+      acceptMission(state.activeCrew, id);
       ov.remove();
-      openDeck(deckId); // straight back in, so you can clear a room in one go
+      switchView('duty');
+      toast(`🎯 Mission accepted — ${dutyById[id].name}`);
     };
   });
   ov.querySelector('#close').onclick = () => ov.remove();
@@ -636,6 +730,7 @@ function openSettings() {
 function renderAll() {
   renderHud();
   if (view === 'duty') {
+    renderSignOff();
     renderCard();
     renderTrack();
   }
@@ -665,6 +760,8 @@ function init() {
   $('#sprint-end').onclick = endSprint;
   $('#btn-settings').onclick = openSettings;
   $('#btn-rescue').onclick = () => {
+    if (activeMission(state.activeCrew))
+      return toast('Finish or hand back your current mission first.');
     const d = rescue(state.activeCrew);
     if (!d) return toast('Nothing small left. Ship is in good order.');
     card = d;

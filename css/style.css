@@ -270,6 +270,61 @@ main {
 body.simple .track-row { min-height: 62px; font-size: 17px; }
 body.simple .track-row .em { font-size: 28px; }
 
+/* ── Accepted mission and sign-off ────────────────────────────────────────── */
+
+.card.onmission { border-color: var(--amber); }
+.card.onmission .deck { color: var(--amber); }
+
+.await {
+  border: 1px dashed #6b5326;
+  border-radius: 12px;
+  padding: 14px;
+  color: var(--amber);
+  font-weight: 600;
+  font-size: 15px;
+}
+.await span { display: block; font-weight: 400; font-size: 12px; color: var(--dim); margin-top: 3px; }
+
+.signoff {
+  border: 1px solid #2c5f80;
+  border-radius: 16px;
+  background: #0d1c2a;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.signoff h3 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  font-weight: 600;
+}
+.so-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid #17324a;
+}
+.so-row:first-of-type { border-top: 0; }
+.so-row .em { font-size: 22px; }
+.so-row .body { flex: 1; min-width: 0; }
+.so-row .t { font-size: 15px; font-weight: 600; }
+.so-row .s { font-size: 12px; color: var(--dim); }
+.so-row button {
+  min-width: 46px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 700;
+}
+.so-row .ok { background: var(--green); color: #04140c; }
+.so-row .no { background: #2a1620; color: var(--red); border: 1px solid #4a2b33; }
+
+.dutyline .do[disabled] { opacity: 0.35; }
+
 .empty { text-align: center; color: var(--dim); padding: 40px 20px; }
 .empty .big { font-size: 46px; display: block; margin-bottom: 10px; }
 

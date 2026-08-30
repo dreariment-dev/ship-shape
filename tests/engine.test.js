@@ -29,6 +29,12 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 
+// freshness() is derived from elapsed time, so a just-completed duty reads
+// 0.99999994 rather than 1 — milliseconds pass between the write and the read.
+// The UI rounds to whole percents so it never shows, but assertions have to
+// allow for it rather than demand exact equality on a float.
+const near = (a, b, tol = 1e-5) => Math.abs(a - b) <= tol;
+
 const run = (name, fn) => {
   try {
     fn();
@@ -410,7 +416,7 @@ run('completing a duty pays out and refreshes it', () => {
       return { pts, fresh: freshness(d.id), skips: state.duties[d.id].skips };
     })()`);
   assert.ok(res.pts > 0);
-  assert.strictEqual(res.fresh, 1, 'a just-done duty should be fully fresh');
+  assert.ok(near(res.fresh, 1), `a just-done duty should be fully fresh, got ${res.fresh}`);
   assert.strictEqual(res.skips, 0);
   assert.strictEqual(ctx('weekTotal("adult")'), before + res.pts);
 });
@@ -516,7 +522,7 @@ run('reset: nothing done leaves the ship at zero and everything available', () =
 run('reset: everything done leaves the ship spotless', () => {
   const res = ctx(`
     (() => { load(); resetShip('clean'); return { integrity: shipIntegrity(), merit: weekTotal('adult') }; })()`);
-  assert.strictEqual(res.integrity, 1, `ship should be at 100%, got ${res.integrity}`);
+  assert.ok(near(res.integrity, 1), `ship should be at 100%, got ${res.integrity}`);
   assert.strictEqual(res.merit, 0);
 });
 
@@ -532,7 +538,7 @@ run('reset: wiping merit leaves the ship untouched', () => {
     })()`);
   assert.strictEqual(res.merit, 0, 'merit survived a score wipe');
   assert.strictEqual(res.droids, 0, 'droids survived a score wipe');
-  assert.strictEqual(res.after, res.mid, 'wiping scores should not move ship integrity');
+  assert.ok(near(res.after, res.mid), `wiping scores moved integrity: ${res.mid} -> ${res.after}`);
 });
 
 run('reset: renames and the signed-in crew member survive', () => {
@@ -548,6 +554,81 @@ run('reset: renames and the signed-in crew member survive', () => {
   assert.strictEqual(res.deck, 'Alfie', 'a renamed deck was lost to a reset');
   assert.strictEqual(res.crew, 'Alfie', 'a renamed crew member was lost to a reset');
   assert.strictEqual(res.active, 'k5', 'the signed-in crew member was lost to a reset');
+});
+
+run('accepting a mission pays nothing until it is signed off', () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      // Earlier resets persist, so don't trust the seed — make everything due.
+      DUTIES.forEach(x => { state.duties[x.id].last = Date.now() - x.days * 86400000 * 1.1; });
+      const d = draw('k9');
+      acceptMission('k9', d.id);
+      const mid = { merit: weekTotal('k9'), fresh: freshness(d.id) };
+      const pts = signOff('k9');
+      return { mid, pts, after: weekTotal('k9'), fresh: freshness(d.id), cleared: !activeMission('k9') };
+    })()`);
+  assert.strictEqual(res.mid.merit, 0, 'accepting a mission paid out immediately');
+  assert.ok(res.mid.fresh < 1, 'accepting a mission refreshed the duty before it was done');
+  assert.ok(res.pts > 0, 'signing off paid nothing');
+  assert.strictEqual(res.after, res.pts, 'merit did not land on sign-off');
+  assert.ok(near(res.fresh, 1), `the duty was not refreshed on sign-off, got ${res.fresh}`);
+  assert.strictEqual(res.cleared, true, 'the mission stayed open after sign-off');
+});
+
+run('merit goes to whoever did the work, not whoever signed it', () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      acceptMission('k5', draw('k5').id);
+      signOff('k5');
+      return { k5: weekTotal('k5'), adult: weekTotal('adult') };
+    })()`);
+  assert.ok(res.k5 > 0, 'the child earned nothing for their own work');
+  assert.strictEqual(res.adult, 0, 'the adult was credited for a child mission');
+});
+
+run('only children need signing off', () => {
+  assert.strictEqual(ctx("needsSignOff('adult')"), false);
+  assert.strictEqual(ctx("needsSignOff('k9')"), true);
+  assert.strictEqual(ctx("needsSignOff('k5')"), true);
+  const queue = ctx(`
+    (() => {
+      load(); state.missions = {};
+      acceptMission('adult', draw('adult').id);
+      acceptMission('k9', draw('k9').id);
+      return pendingSignOff().map(p => p.crewId);
+    })()`);
+  assert.deepStrictEqual([...queue], ['k9'], `unexpected sign-off queue: ${[...queue].join(', ')}`);
+});
+
+run('handing a mission back costs nothing', () => {
+  // Abandoning isn't ducking — no hazard pay, no merit, nothing moved.
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const d = draw('k9');
+      const before = { skips: state.duties[d.id].skips, fresh: freshness(d.id) };
+      acceptMission('k9', d.id);
+      sendBack('k9');
+      return { before, after: { skips: state.duties[d.id].skips, fresh: freshness(d.id) },
+               merit: weekTotal('k9'), open: !!activeMission('k9') };
+    })()`);
+  assert.strictEqual(res.after.skips, res.before.skips, 'handing back raised hazard pay');
+  assert.strictEqual(res.after.fresh, res.before.fresh, 'handing back altered the duty');
+  assert.strictEqual(res.merit, 0);
+  assert.strictEqual(res.open, false, 'the mission stayed open after being sent back');
+});
+
+run('a reset clears any open missions', () => {
+  const open = ctx(`
+    (() => {
+      load();
+      acceptMission('k9', draw('k9').id);
+      resetShip('fresh');
+      return !!activeMission('k9');
+    })()`);
+  assert.strictEqual(open, false, 'a mission survived a reset');
 });
 
 run('a corrupt save does not brick the app', () => {
