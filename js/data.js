@@ -86,8 +86,8 @@ const DECKS = [
 // so the Cadet still won't be handed the window cleaner in their own room.
 const DECK_ACCESS = {
   adult: null,
-  k9: ['bunkb', 'playroom', 'galley'],
-  k5: ['bunkc', 'playroom', 'galley'],
+  k9: ['bunkb', 'playroom', 'bridge', 'galley'],
+  k5: ['bunkc', 'playroom', 'bridge', 'galley'],
 };
 
 // Your own patch is your responsibility. A duty an owner can do isn't offered
@@ -133,11 +133,11 @@ const DUTIES = [
   { deck: 'galley', name: 'Defrost and wipe the freezer', icon: '🧊', tier: 'seasonal', mins: 30, who: ADULT },
 
   // ── Bridge ────────────────────────────────────────────────────────────────
-  { deck: 'bridge', name: 'Tidy the lounge',          icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
+  { deck: 'bridge', name: 'Tidy the bridge',          icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
   { deck: 'bridge', name: 'Dust the surfaces',        icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
-  { deck: 'bridge', name: 'Hoover the bridge',        icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
+  { deck: 'bridge', name: 'Hoover the bridge',        icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
   { deck: 'bridge', name: 'Wipe the screen and remotes', icon: '📺', tier: 'monthly', mins: 5, who: GROWN },
-  { deck: 'bridge', name: 'Hoover under the sofa cushions', icon: '🛋️', tier: 'monthly', mins: 10, who: GROWN },
+  { deck: 'bridge', name: 'Hoover under the sofa cushions', icon: '🛋️', tier: 'monthly', mins: 10, who: ALL },
   { deck: 'bridge', name: 'Skirting boards',          icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'bridge', name: 'Clean the windows',        icon: '🪟', tier: 'biweekly',  mins: 15, who: ALL },
   { deck: 'bridge', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
@@ -147,7 +147,7 @@ const DUTIES = [
   // they can actually be dealt than a second sitting room would.
   { deck: 'playroom', name: 'Tidy the playroom',      icon: '🧸', tier: 'often',    mins: 8,  pts: 20, who: ALL },
   { deck: 'playroom', name: 'Dust the surfaces',      icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
-  { deck: 'playroom', name: 'Hoover the playroom',    icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
+  { deck: 'playroom', name: 'Hoover the playroom',    icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
   { deck: 'playroom', name: 'Sort out one toy box',   icon: '🪀', tier: 'monthly',  mins: 20, who: ALL },
   { deck: 'playroom', name: 'Wipe the doors and light switches', icon: '🚪', tier: 'monthly', mins: 10, who: ALL },
   { deck: 'playroom', name: 'Skirting boards',        icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
@@ -158,7 +158,7 @@ const DUTIES = [
   // ── Ops ───────────────────────────────────────────────────────────────────
   { deck: 'ops', name: 'Paper and clutter sweep',     icon: '📄', tier: 'often',    mins: 5,  who: GROWN },
   { deck: 'ops', name: 'Dust the desk and shelves',   icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
-  { deck: 'ops', name: 'Hoover Ops',                  icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
+  { deck: 'ops', name: 'Hoover Ops',                  icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
   { deck: 'ops', name: 'Wipe screens and keyboard',   icon: '⌨️', tier: 'monthly',  mins: 5,  who: GROWN },
   { deck: 'ops', name: 'Skirting boards',             icon: '📏', tier: 'monthly',  mins: 10, who: ALL },
   { deck: 'ops', name: 'Clean the windows',           icon: '🪟', tier: 'biweekly',  mins: 10, who: ALL },
@@ -206,7 +206,7 @@ const DUTIES = [
     { deck, name: 'Tidy your quarters',        icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
     { deck, name: 'Dust the surfaces',         icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
     { deck, name: 'Change the bedding',        icon: '🛌', tier: 'weekly',   mins: 10, who: ADULT },
-    { deck, name: 'Hoover the quarters',       icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
+    { deck, name: 'Hoover the quarters',       icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
     { deck, name: 'Under the bed',             icon: '🔦', tier: 'monthly',  mins: 15, who: GROWN },
     { deck, name: 'Skirting boards',           icon: '📏', tier: 'monthly',  mins: 10, who: ALL },
     { deck, name: 'Clean the windows',         icon: '🪟', tier: 'biweekly',  mins: 10, who: ALL },
@@ -216,7 +216,7 @@ const DUTIES = [
   // ── Turbolift Shaft ───────────────────────────────────────────────────────
   { deck: 'turbo', name: 'Clear the step pile',       icon: '📦', tier: 'often',    mins: 3,  who: ALL },
   { deck: 'turbo', name: 'Wipe the banister',         icon: '🧽', tier: 'weekly',   mins: 5,  who: ALL },
-  { deck: 'turbo', name: 'Hoover the stairs',         icon: '🌀', tier: 'weekly',   mins: 15, who: GROWN, pts: 40 },
+  { deck: 'turbo', name: 'Hoover the stairs',         icon: '🌀', tier: 'weekly',   mins: 15, who: ALL, pts: 40 },
   { deck: 'turbo', name: 'Skirting and spindles',     icon: '📏', tier: 'monthly',  mins: 25, who: ADULT, pts: 90 },
   { deck: 'turbo', name: 'Dust the stairwell light',  icon: '💡', tier: 'seasonal', mins: 15, who: ADULT },
 ];
