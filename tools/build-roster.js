@@ -14,6 +14,7 @@ const DECKS = vm.runInContext('DECKS', c);
 const TIERS = vm.runInContext('TIERS', c);
 const ZONES = vm.runInContext('ZONES', c);
 const DECK_ACCESS = vm.runInContext('DECK_ACCESS', c);
+const TRACKS = vm.runInContext('TRACKS', c);
 const deckById = Object.fromEntries(DECKS.map((d) => [d.id, d]));
 
 // Eligibility is both gates: may you be sent to this deck, and is the job safe
@@ -39,14 +40,15 @@ const TIER_META = {
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // ── Aggregates for the summary band ─────────────────────────────────────────
-const total = DUTIES.length;
+const CHORES = DUTIES.filter((d) => !d.track);
+const total = CHORES.length;
 const byTier = TIER_ORDER.map((t) => ({
   t,
-  n: DUTIES.filter((d) => d.tier === t).length,
+  n: CHORES.filter((d) => d.tier === t).length,
   pts: DUTIES.filter((d) => d.tier === t).reduce((a, d) => a + d.pts, 0),
 }));
 const byCrew = CREW.map((cw) => {
-  const pool = DUTIES.filter((d) => canDo(cw.id, d));
+  const pool = CHORES.filter((d) => canDo(cw.id, d));
   return {
     ...cw,
     n: pool.length,
@@ -61,7 +63,7 @@ const weeklyLoad = (pool) =>
 
 const crewLoad = CREW.map((cw) => ({
   ...cw,
-  load: weeklyLoad(DUTIES.filter((d) => canDo(cw.id, d))),
+  load: weeklyLoad(CHORES.filter((d) => canDo(cw.id, d))),
   decks: DECK_ACCESS[cw.id],
 }));
 
@@ -89,7 +91,7 @@ function dutyRow(d) {
 }
 
 function deckSection(deck) {
-  const pool = DUTIES.filter((d) => d.deck === deck.id);
+  const pool = CHORES.filter((d) => d.deck === deck.id);
   const pts = pool.reduce((a, d) => a + d.pts, 0);
   const rows = pool
     .slice()
@@ -125,6 +127,29 @@ ${rows}
   </div>
 </section>`;
 }
+
+
+const trackBlock = Object.entries(TRACKS)
+  .map(([crewId, t]) => {
+    const cw = CREW.find((c) => c.id === crewId);
+    const rows = DUTIES.filter((d) => d.track === t.id)
+      .map(
+        (d) => `<tr><td class="c-icon">${d.icon}</td><td class="c-name">${esc(d.name)}</td>
+        <td class="c-tier"><span class="tier dl">Daily</span><span class="every">every day</span></td>
+        <td class="c-who"><span class="pill on">${cw.short}</span></td></tr>`
+      )
+      .join('\n');
+    return `<section class="deck">
+  <header class="deck-head">
+    <span class="deck-em">${t.icon}</span>
+    <div class="deck-id"><h3>${t.name}</h3><p><span class="owned">${cw.emoji} ${cw.name} only</span></p></div>
+    <dl class="deck-stats"><div><dt>Weekly goal</dt><dd>${t.goal} ${t.unit}</dd></div><div><dt>Chances</dt><dd>14</dd></div></dl>
+  </header>
+  <div class="table-wrap"><table><thead><tr><th></th><th>Habit</th><th>Cadence</th><th>Whose</th></tr></thead>
+  <tbody>\n${rows}\n</tbody></table></div>
+</section>`;
+  })
+  .join('\n');
 
 const zoneBlocks = Object.entries(ZONES)
   .map(([zone, title]) => {
@@ -439,6 +464,10 @@ td { padding: 10px; vertical-align: middle; }
     ${TIER_ORDER.map((t) => `<button data-f="tier" data-v="${t}" aria-pressed="false">${TIER_META[t].label}</button>`).join('\n    ')}
     <span class="count" id="count"></span>
   </div>
+
+<h2 class="zone">Personal tracks — scored separately</h2>
+  <p class="lede" style="margin:-14px 0 0">Bedtime and homework aren't cleaning. These earn no merit and no droids, never appear in the card draw, and are ticked off in their own strip — so each child has two rewards to chase and neither can substitute for the other.</p>
+${trackBlock}
 
 ${zoneBlocks}
 
