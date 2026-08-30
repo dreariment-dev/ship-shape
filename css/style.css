@@ -411,6 +411,7 @@ body.simple .track-row .em { font-size: 28px; }
 .st.soon { color: var(--dim); }
 .st.due { color: var(--amber); }
 .st.over { color: var(--red); }
+.st.crit { color: var(--red); font-weight: 700; }
 
 body.simple .dutyline { min-height: 68px; }
 body.simple .dutyline .em { font-size: 28px; }

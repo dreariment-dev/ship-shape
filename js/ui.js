@@ -194,7 +194,6 @@ function renderCard() {
   }
 
   const pts = value(card.id);
-  const haz = hazardMult(card.id);
   const over = dueness(card.id);
 
   const chips = isSimple()
@@ -203,8 +202,8 @@ function renderCard() {
         `<span class="chip pts">${pts} merit</span>`,
         `<span class="chip mins">~${card.mins} min</span>`,
         `<span class="chip tier">${TIERS[card.tier].label}</span>`,
-        haz > 1 ? `<span class="chip hazard">⚠ Hazard pay ×${+haz.toFixed(2)}</span>` : '',
-        over >= 2 ? `<span class="chip">Critical</span>` : '',
+        payChip(card.id),
+        over >= 1.5 ? `<span class="chip">${dutyState(card.id).text}</span>` : '',
       ].join('');
 
   const c = el(`
@@ -327,13 +326,29 @@ function deckRow(d, muted) {
   return row;
 }
 
-/** How a duty stands, in words rather than a number. */
+/**
+ * How a duty stands, in words rather than a number. Deliberately describes the
+ * kit, not the person — a failing system is a thing to fix, "you're late" is a
+ * telling-off, and this app doesn't do those.
+ */
 function dutyState(id) {
   const due = dueness(id);
-  if (due < 0.5) return { cls: 'fresh', text: 'Done recently' };
-  if (due < 1) return { cls: 'soon', text: 'Due soon' };
-  if (due < 2) return { cls: 'due', text: 'Due now' };
-  return { cls: 'over', text: 'Overdue' };
+  if (due < 0.5) return { cls: 'fresh', text: 'Just done' };
+  if (due < 1) return { cls: 'soon', text: 'Holding' };
+  if (due < 1.5) return { cls: 'due', text: 'Due now' };
+  if (due < 2.5) return { cls: 'over', text: 'Degrading' };
+  if (due < 4) return { cls: 'over', text: 'Failing' };
+  return { cls: 'crit', text: 'Critical' };
+}
+
+/** The pay multiplier as a chip, saying which penalty is driving it. */
+function payChip(id) {
+  const m = payMult(id);
+  if (m <= 1.01) return '';
+  const skipped = hazardMult(id) > 1;
+  const rotted = neglectMult(id) > 1;
+  const label = skipped && rotted ? 'Hazard + overdue' : skipped ? 'Hazard pay' : 'Overdue pay';
+  return `<span class="chip hazard">⚠ ${label} ×${+m.toFixed(2)}</span>`;
 }
 
 /**
@@ -354,7 +369,7 @@ function openDeck(deckId) {
 
   const line = (d, actionable) => {
     const st = dutyState(d.id);
-    const haz = hazardMult(d.id);
+    const mult = payMult(d.id);
     let why = '';
     if (!actionable) {
       const owners = d.owners ?? deck.owners;
@@ -370,7 +385,7 @@ function openDeck(deckId) {
           <div class="t">${d.name}</div>
           <div class="s"><span class="st ${st.cls}">${st.text}</span>${
             actionable && !isSimple() ? ` · ${value(d.id)} merit` : ''
-          }${haz > 1 && actionable ? ` · ⚠ ×${+haz.toFixed(2)}` : ''}${why ? ` · ${why}` : ''}</div>
+          }${mult > 1.01 && actionable ? ` · ⚠ ×${+mult.toFixed(2)}` : ''}${why ? ` · ${why}` : ''}</div>
         </div>
         ${actionable ? `<button class="do"${busy ? ' disabled' : ''}>Take</button>` : ''}
       </div>`;

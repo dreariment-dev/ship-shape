@@ -697,6 +697,45 @@ run('a reset clears any open missions', () => {
   assert.strictEqual(open, false, 'a mission survived a reset');
 });
 
+run('neglect raises the pay even with no skips', () => {
+  // The dread tax used to catch only actively-ducked duties; a quietly
+  // forgotten one stayed cheap forever, which is the wrong incentive.
+  const res = ctx(`
+    (() => {
+      load();
+      const d = DUTIES.find(x => !x.track);
+      state.duties[d.id].skips = 0;
+      const at = (mult) => {
+        state.duties[d.id].last = Date.now() - d.days * 86400000 * mult;
+        return { due: dueness(d.id), pay: payMult(d.id), value: value(d.id) };
+      };
+      return { fresh: at(0.5), due: at(1), late: at(2), rotten: at(4), ancient: at(20) };
+    })()`);
+  assert.strictEqual(res.fresh.pay, 1, 'a fresh duty should pay base rate');
+  assert.strictEqual(res.due.pay, 1, 'a just-due duty should pay base rate');
+  assert.ok(res.late.pay > 1, 'an overdue duty should pay more');
+  assert.ok(res.rotten.pay > res.late.pay, 'pay should keep climbing with neglect');
+  assert.ok(res.rotten.value > res.late.value, 'the value should follow the multiplier');
+  assert.ok(res.ancient.pay <= 3, `combined pay must stay capped, got ${res.ancient.pay}`);
+});
+
+run('skips and neglect compound but stay capped', () => {
+  const res = ctx(`
+    (() => {
+      load();
+      const d = DUTIES.find(x => !x.track);
+      state.duties[d.id].last = Date.now() - d.days * 86400000 * 3;
+      state.duties[d.id].skips = 0;
+      const neglectOnly = payMult(d.id);
+      for (let i = 0; i < 3; i++) swap(d.id);
+      const both = payMult(d.id);
+      for (let i = 0; i < 40; i++) swap(d.id);
+      return { neglectOnly, both, maxed: payMult(d.id) };
+    })()`);
+  assert.ok(res.both > res.neglectOnly, 'ducking an already-rotten job should cost more still');
+  assert.strictEqual(res.maxed, 3, `combined multiplier should cap at 3, got ${res.maxed}`);
+});
+
 run('the week turns over on Friday morning', () => {
   const res = ctx(`
     (() => {

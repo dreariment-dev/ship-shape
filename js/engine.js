@@ -104,8 +104,26 @@ function hazardMult(id) {
   return Math.min(1 + 0.25 * state.duties[id].skips, 3);
 }
 
+/**
+ * Neglect raises the price too, not just active ducking. A job nobody has even
+ * been offered can still rot, and it should get more attractive as it does —
+ * otherwise the dread tax only ever catches the duties someone bothered to
+ * swap away, and the quietly-forgotten ones stay cheap forever.
+ *
+ * Half again for each cadence-length past due, capped at double.
+ */
+function neglectMult(id) {
+  const over = dueness(id) - 1;
+  return over <= 0 ? 1 : Math.min(1 + over * 0.5, 2);
+}
+
+/** What a duty actually pays, both penalties combined and capped together. */
+function payMult(id) {
+  return Math.min(hazardMult(id) * neglectMult(id), 3);
+}
+
 function value(id) {
-  return Math.round(dutyById[id].pts * hazardMult(id));
+  return Math.round(dutyById[id].pts * payMult(id));
 }
 
 // Integrity is weighted by points rather than by count, so a filthy oven drags
