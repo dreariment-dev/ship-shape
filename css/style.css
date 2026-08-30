@@ -305,6 +305,58 @@ body.simple .track-row .em { font-size: 28px; }
   text-align: right;
 }
 .deck .bar { margin-top: 6px; }
+/* The row is a button now — reset the browser's defaults without disturbing
+   the layout the div version already had. */
+.deck { width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.deck:active { transform: scale(0.995); }
+.deck:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.deck .pct { display: flex; align-items: center; gap: 4px; justify-content: flex-end; }
+.deck .chev { color: var(--dim); font-size: 20px; line-height: 1; }
+
+/* ── Room detail ──────────────────────────────────────────────────────────── */
+
+.seg {
+  margin: 18px 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-weight: 600;
+}
+.dutyline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  margin-bottom: 8px;
+  min-height: 60px;
+}
+.dutyline .em { font-size: 22px; }
+.dutyline .body { flex: 1; min-width: 0; }
+.dutyline .t { font-size: 15px; font-weight: 600; }
+.dutyline .s { font-size: 12px; color: var(--dim); margin-top: 2px; }
+.dutyline.off { opacity: 0.5; }
+.dutyline .do {
+  min-width: 62px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--cyan);
+  color: #04121b;
+  font-weight: 700;
+  font-size: 15px;
+}
+.st.fresh { color: var(--green); }
+.st.soon { color: var(--dim); }
+.st.due { color: var(--amber); }
+.st.over { color: var(--red); }
+
+body.simple .dutyline { min-height: 68px; }
+body.simple .dutyline .em { font-size: 28px; }
+body.simple .dutyline .t { font-size: 17px; }
 /* Someone else's deck: still visible so the ship reads as shared, but clearly
    not yours to act on. */
 .deck.muted { opacity: 0.42; }

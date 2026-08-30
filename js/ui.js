@@ -213,16 +213,99 @@ function doComplete(duty, bonus = 1) {
 
 function deckRow(d, muted) {
   const pct = deckIntegrity(d.id);
-  return el(`
-    <div class="deck ${muted ? 'muted' : ''}">
+  const mine = eligible(state.activeCrew).filter((x) => x.deck === d.id).length;
+  const row = el(`
+    <button class="deck ${muted ? 'muted' : ''}">
       <span class="em">${d.emoji}</span>
       <div class="body">
         <div class="name">${deckName(d.id)}</div>
-        <div class="sub">${d.sub}</div>
+        <div class="sub">${d.sub}${mine ? ` · ${mine} for you` : ''}</div>
         <div class="bar ${band(pct)}"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
       </div>
-      <div class="pct">${Math.round(pct * 100)}%</div>
+      <div class="pct">${Math.round(pct * 100)}%<span class="chev">›</span></div>
+    </button>`);
+  row.onclick = () => openDeck(d.id);
+  return row;
+}
+
+/** How a duty stands, in words rather than a number. */
+function dutyState(id) {
+  const due = dueness(id);
+  if (due < 0.5) return { cls: 'fresh', text: 'Done recently' };
+  if (due < 1) return { cls: 'soon', text: 'Due soon' };
+  if (due < 2) return { cls: 'due', text: 'Due now' };
+  return { cls: 'over', text: 'Overdue' };
+}
+
+/**
+ * A room, opened deliberately. Shows what's actually doable here by whoever is
+ * signed in, with everything else dimmed underneath so the integrity figure at
+ * the top is explainable rather than mysterious.
+ */
+function openDeck(deckId) {
+  const deck = deckById[deckId];
+  const pct = deckIntegrity(deckId);
+  const all = DUTIES.filter((d) => d.deck === deckId && !d.track);
+  const canDo = eligible(state.activeCrew).map((d) => d.id);
+  const mine = all.filter((d) => canDo.includes(d.id));
+  const theirs = all.filter((d) => !canDo.includes(d.id));
+
+  const line = (d, actionable) => {
+    const st = dutyState(d.id);
+    const haz = hazardMult(d.id);
+    let why = '';
+    if (!actionable) {
+      const owners = d.owners ?? deck.owners;
+      if (!d.who.includes(state.activeCrew)) why = 'Not your job';
+      else if (owners && !owners.includes(state.activeCrew))
+        why = `Held for ${owners.map(crewName).join(' & ')}`;
+      else why = 'Put off until tomorrow';
+    }
+    return `
+      <div class="dutyline ${actionable ? '' : 'off'}" data-id="${d.id}">
+        <span class="em">${d.icon}</span>
+        <div class="body">
+          <div class="t">${d.name}</div>
+          <div class="s"><span class="st ${st.cls}">${st.text}</span>${
+            actionable && !isSimple() ? ` · ${value(d.id)} merit` : ''
+          }${haz > 1 && actionable ? ` · ⚠ ×${+haz.toFixed(2)}` : ''}${why ? ` · ${why}` : ''}</div>
+        </div>
+        ${actionable ? '<button class="do">Do</button>' : ''}
+      </div>`;
+  };
+
+  const ov = el(`
+    <div class="overlay">
+      <div class="sprint-inner">
+        <div class="sprint-head">
+          <h2>${deck.emoji} ${deckName(deckId)}</h2>
+          <div class="clock" style="font-size:22px;color:var(--${band(pct) === 'good' ? 'green' : band(pct) === 'warn' ? 'amber' : 'red'})">${Math.round(pct * 100)}%</div>
+        </div>
+        <p class="sprint-sub">${deck.sub} · ${STATUS[band(pct)]}</p>
+        <div class="bar ${band(pct)}" style="margin-bottom:16px"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
+
+        ${mine.length
+          ? `<h3 class="seg">Yours to do here</h3>${mine.map((d) => line(d, true)).join('')}`
+          : `<div class="empty" style="padding:24px 8px"><span class="big">✅</span>Nothing here for you right now.</div>`}
+
+        ${theirs.length && !isSimple()
+          ? `<h3 class="seg">Not yours right now</h3>${theirs.map((d) => line(d, false)).join('')}`
+          : ''}
+
+        <button class="ghost wide" id="close" style="margin-top:20px">Close</button>
+      </div>
     </div>`);
+
+  ov.querySelectorAll('.dutyline .do').forEach((b) => {
+    b.onclick = () => {
+      const id = b.closest('.dutyline').dataset.id;
+      doComplete(dutyById[id]);
+      ov.remove();
+      openDeck(deckId); // straight back in, so you can clear a room in one go
+    };
+  });
+  ov.querySelector('#close').onclick = () => ov.remove();
+  document.body.append(ov);
 }
 
 const worstFirst = (a, b) => deckIntegrity(a.id) - deckIntegrity(b.id);
