@@ -1,6 +1,6 @@
 // Offline shell. Bump CACHE on every release or the old files stick around —
 // changing this string is what tells an installed phone there's a new version.
-const CACHE = 'shipshape-v7';
+const CACHE = 'shipshape-v8';
 
 const SHELL = [
   './',
