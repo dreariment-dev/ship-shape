@@ -620,6 +620,72 @@ run('handing a mission back costs nothing', () => {
   assert.strictEqual(res.open, false, 'the mission stayed open after being sent back');
 });
 
+run("a child's drill banks nothing until it is signed off", () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      DUTIES.forEach(x => { state.duties[x.id].last = Date.now() - x.days * 86400000 * 1.1; });
+      const tasks = drawSprint('k9', 3);
+      acceptDrill('k9', tasks.map(t => t.id), true);
+      const mid = { merit: weekTotal('k9'), fresh: tasks.map(t => freshness(t.id)) };
+      const pts = signOff('k9');
+      return {
+        mid, pts, after: weekTotal('k9'), n: tasks.length,
+        allFresh: tasks.every(t => freshness(t.id) > 0.9999),
+        bonus: state.log.some(e => e.duty === 'bonus:redalert'),
+      };
+    })()`);
+  assert.strictEqual(res.n, 3, 'a drill should deal three');
+  assert.strictEqual(res.mid.merit, 0, 'a cleared drill paid out before sign-off');
+  assert.ok([...res.mid.fresh].every((f) => f < 1), 'a cleared drill refreshed duties before sign-off');
+  assert.strictEqual(res.after, res.pts, 'drill merit did not land on sign-off');
+  assert.strictEqual(res.allFresh, true, 'sign-off did not refresh every duty in the drill');
+  assert.strictEqual(res.bonus, true, 'a fully cleared drill paid no bonus');
+});
+
+run('a part-cleared drill pays no bonus', () => {
+  const bonus = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const tasks = drawSprint('k5', 3);
+      acceptDrill('k5', [tasks[0].id, tasks[1].id], false);
+      signOff('k5');
+      return state.log.some(e => e.duty === 'bonus:redalert');
+    })()`);
+  assert.strictEqual(bonus, false, 'a part-cleared drill paid the full-clear bonus');
+});
+
+run('sending a drill back scores nothing at all', () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const tasks = drawSprint('k9', 3);
+      acceptDrill('k9', tasks.map(t => t.id), true);
+      sendBack('k9');
+      return { merit: weekTotal('k9'), droids: countSince('k9', 0), open: !!activeMission('k9') };
+    })()`);
+  assert.strictEqual(res.merit, 0);
+  assert.strictEqual(res.droids, 0, 'a rejected drill still awarded droids');
+  assert.strictEqual(res.open, false);
+});
+
+run('an old single-duty mission still loads', () => {
+  // Saves written before drills stored one duty, not a list.
+  const res = ctx(`
+    (() => {
+      load();
+      const id = DUTIES.find(d => !d.track).id;
+      state.missions = { k9: { duty: id, at: Date.now() } };
+      localStorage.setItem('shipshape.v1', JSON.stringify(state));
+      load();
+      const m = activeMission('k9');
+      return { has: !!m, n: m ? m.duties.length : 0, same: m ? m.duties[0] === id : false };
+    })()`);
+  assert.strictEqual(res.has, true, 'an old-format mission was lost on load');
+  assert.strictEqual(res.n, 1);
+  assert.strictEqual(res.same, true);
+});
+
 run('a reset clears any open missions', () => {
   const open = ctx(`
     (() => {

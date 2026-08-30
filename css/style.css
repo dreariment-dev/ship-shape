@@ -275,6 +275,9 @@ body.simple .track-row .em { font-size: 28px; }
 .card.onmission { border-color: var(--amber); }
 .card.onmission .deck { color: var(--amber); }
 
+.drill-list { display: grid; gap: 4px; margin: 4px 0 10px; }
+.drill-list span { font-size: 13px; color: var(--dim); }
+
 .await {
   border: 1px dashed #6b5326;
   border-radius: 12px;

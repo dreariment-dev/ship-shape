@@ -80,34 +80,40 @@ function renderHud() {
 /** The accepted mission, replacing the draw until it's resolved. */
 function renderMission(m) {
   const slot = $('#card-slot');
-  const d = dutyById[m.duty];
   const waiting = needsSignOff(state.activeCrew);
-  const pts = value(d.id);
+  const v = missionValue(m);
+  const first = dutyById[m.duties[0]];
+
+  const body = m.drill
+    ? `<div class="deck">Drill cleared</div>
+       <div class="icon">🚨</div>
+       <h2>${m.duties.length} job${m.duties.length > 1 ? 's' : ''} done</h2>
+       <div class="drill-list">${m.duties.map((id) => `<span>${dutyById[id].icon} ${dutyById[id].name}</span>`).join('')}</div>`
+    : `<div class="deck">On mission · ${deckName(first.deck)}</div>
+       <div class="icon">${first.icon}</div>
+       <h2>${first.name}</h2>`;
 
   const c = el(`
     <div class="card onmission">
-      <div class="deck">On mission · ${deckName(d.deck)}</div>
-      <div class="icon">${d.icon}</div>
-      <h2>${d.name}</h2>
+      ${body}
       <div class="meta">${
         isSimple()
-          ? '<span class="chip pts">🤖 Rescue a droid</span>'
-          : `<span class="chip pts">${pts} merit</span><span class="chip mins">~${d.mins} min</span>`
+          ? `<span class="chip pts">🤖 ${m.duties.length} droid${m.duties.length > 1 ? 's' : ''} waiting</span>`
+          : `<span class="chip pts">${v.total} merit</span>${v.bonus ? `<span class="chip hazard">+${v.bonus} drill bonus</span>` : ''}`
       }</div>
       <div class="actions">
         ${waiting
           ? `<div class="await">🫡 Tell the ${crewName('adult')} when it's done<span>They'll sign it off</span></div>`
           : '<button class="btn" id="done">Mark it done</button>'}
-        <div class="row"><button class="ghost" id="drop">Hand it back</button></div>
+        <div class="row"><button class="ghost" id="drop">Hand ${m.duties.length > 1 ? 'them' : 'it'} back</button></div>
       </div>
     </div>`);
   slot.append(c);
 
   if (!waiting) {
     c.querySelector('#done').onclick = () => {
-      const got = signOff(state.activeCrew) || complete(d.id, state.activeCrew);
-      abandonMission(state.activeCrew);
-      toast(`+${got} merit — ${deckName(d.deck)} restored`);
+      const got = signOff(state.activeCrew);
+      toast(`+${got} merit banked`);
       card = null;
       renderAll();
     };
@@ -130,14 +136,19 @@ function renderSignOff() {
 
   const box = el(`<div class="signoff"><h3>Waiting on you</h3></div>`);
   pending.forEach((p) => {
-    const d = dutyById[p.duty];
     const cw = crewById(p.crewId);
+    const v = missionValue(p);
+    const one = dutyById[p.duties[0]];
     const row = el(`
       <div class="so-row">
-        <span class="em">${d.icon}</span>
+        <span class="em">${p.drill ? '🚨' : one.icon}</span>
         <div class="body">
-          <div class="t">${d.name}</div>
-          <div class="s">${cw.emoji} ${crewName(p.crewId)} · ${deckName(d.deck)}</div>
+          <div class="t">${p.drill ? `Drill · ${p.duties.length} jobs` : one.name}</div>
+          <div class="s">${cw.emoji} ${crewName(p.crewId)} · ${
+            p.drill
+              ? p.duties.map((id) => dutyById[id].name).join(', ')
+              : deckName(one.deck)
+          } · ${v.total} merit</div>
         </div>
         <button class="ok">✓</button>
         <button class="no">✕</button>
@@ -604,7 +615,9 @@ function renderSprint() {
       </div>`);
     if (!done) {
       row.querySelector('button').onclick = () => {
-        complete(t.id, sprint.crew);
+        // An adult's ticks land immediately; a child's are held and banked as
+        // one batch when the drill ends, so the whole thing gets signed off.
+        if (!needsSignOff(sprint.crew)) complete(t.id, sprint.crew);
         sprint.done.add(t.id);
         renderSprint();
         renderHud();
@@ -616,18 +629,30 @@ function renderSprint() {
 }
 
 function finishSprint() {
+  const full = sprint.done.size === sprint.tasks.length;
+  if (needsSignOff(sprint.crew)) return endSprint();
   const earned = sprint.tasks.reduce((a, t) => a + dutyById[t.id].pts, 0);
   const bonus = Math.round(earned * 0.5);
   state.log.push({ t: Date.now(), crew: sprint.crew, duty: 'bonus:redalert', pts: bonus });
   save();
   endSprint();
-  toast(`🎉 Drill cleared! +${bonus} bonus merit`, 3200);
+  if (full) toast(`🎉 Drill cleared! +${bonus} bonus merit`, 3200);
 }
 
+/**
+ * Ends the drill. A child's cleared jobs are banked as one mission for an
+ * adult to approve — nothing they ticked is scored until it's signed.
+ */
 function endSprint() {
   if (sprint?.timer) clearInterval(sprint.timer);
+  const s = sprint;
   sprint = null;
   $('#sprint').classList.add('hidden');
+
+  if (s && needsSignOff(s.crew) && s.done.size) {
+    acceptDrill(s.crew, [...s.done], s.done.size === s.tasks.length);
+    toast(`🫡 ${s.done.size} job${s.done.size > 1 ? 's' : ''} sent to the ${crewName('adult')} to sign off`, 3200);
+  }
   card = null;
   renderAll();
 }
@@ -756,7 +781,11 @@ function init() {
   document.querySelectorAll('.tabs button').forEach((b) => {
     b.onclick = () => switchView(b.dataset.view);
   });
-  $('#btn-alert').onclick = startSprint;
+  $('#btn-alert').onclick = () => {
+    if (activeMission(state.activeCrew))
+      return toast('Finish or hand back your current mission first.');
+    startSprint();
+  };
   $('#sprint-end').onclick = endSprint;
   $('#btn-settings').onclick = openSettings;
   $('#btn-rescue').onclick = () => {

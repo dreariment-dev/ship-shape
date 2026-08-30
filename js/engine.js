@@ -69,6 +69,12 @@ function reconcileRoster() {
   // has a names map, just one missing the decks added since. Existing entries
   // are left alone so the crew's own renames survive an update.
   state.missions ??= {};
+  // Missions used to hold a single duty; drills made them a list.
+  Object.entries(state.missions).forEach(([crewId, m]) => {
+    if (m && m.duty && !m.duties) {
+      state.missions[crewId] = { duties: [m.duty], at: m.at, drill: false };
+    }
+  });
   state.crewNames ??= {};
   state.deckNames ??= {};
   CREW.forEach((c) => { state.crewNames[c.id] ??= c.name; });
@@ -217,15 +223,36 @@ function drawSprint(crewId, n = 3) {
 
 const needsSignOff = (crewId) => crewId !== 'adult';
 
+/**
+ * A mission holds a list of duties — one for an ordinary card, three for a
+ * cleared drill. Keeping both in the same shape means the sign-off queue has
+ * one thing to render and there's no second path to remember.
+ */
 function activeMission(crewId) {
   const m = state.missions?.[crewId];
-  return m && dutyById[m.duty] ? m : null;
+  if (!m) return null;
+  const duties = (m.duties ?? []).filter((id) => dutyById[id]);
+  return duties.length ? { ...m, duties } : null;
 }
 
 function acceptMission(crewId, dutyId) {
   state.missions ??= {};
-  state.missions[crewId] = { duty: dutyId, at: Date.now() };
+  state.missions[crewId] = { duties: [dutyId], at: Date.now(), drill: false };
   save();
+}
+
+/** A drill a child has cleared, banked whole for an adult to approve. */
+function acceptDrill(crewId, dutyIds, full) {
+  state.missions ??= {};
+  state.missions[crewId] = { duties: [...dutyIds], at: Date.now(), drill: true, full };
+  save();
+}
+
+/** What a mission is worth right now, before anyone signs anything. */
+function missionValue(m) {
+  const base = m.duties.reduce((a, id) => a + value(id), 0);
+  const bonus = m.drill && m.full ? Math.round(m.duties.reduce((a, id) => a + dutyById[id].pts, 0) * 0.5) : 0;
+  return { base, bonus, total: base + bonus };
 }
 
 /** Handed back with no penalty — an abandoned job isn't a ducked one. */
@@ -236,9 +263,9 @@ function abandonMission(crewId) {
 
 /** Everyone waiting on an adult, oldest first. */
 function pendingSignOff() {
-  return Object.entries(state.missions ?? {})
-    .filter(([crewId, m]) => needsSignOff(crewId) && m && dutyById[m.duty])
-    .map(([crewId, m]) => ({ crewId, ...m }))
+  return Object.keys(state.missions ?? {})
+    .filter((crewId) => needsSignOff(crewId) && activeMission(crewId))
+    .map((crewId) => ({ crewId, ...activeMission(crewId) }))
     .sort((a, b) => a.at - b.at);
 }
 
@@ -246,7 +273,13 @@ function pendingSignOff() {
 function signOff(crewId) {
   const m = activeMission(crewId);
   if (!m) return 0;
-  const pts = complete(m.duty, crewId);
+  let pts = m.duties.reduce((a, id) => a + complete(id, crewId), 0);
+  // The drill bonus is part of what's being approved, not a separate award.
+  if (m.drill && m.full) {
+    const bonus = Math.round(m.duties.reduce((a, id) => a + dutyById[id].pts, 0) * 0.5);
+    state.log.push({ t: Date.now(), crew: crewId, duty: 'bonus:redalert', pts: bonus });
+    pts += bonus;
+  }
   delete state.missions[crewId];
   save();
   return pts;
