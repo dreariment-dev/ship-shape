@@ -249,6 +249,79 @@ run('a child is never blocked from their own room', () => {
   assert.strictEqual(ok, true, 'the Cadet cannot reach their own quarters');
 });
 
+run('track duties never enter the card draw', () => {
+  const leaked = ctx(`
+    (() => {
+      load();
+      DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 3; });
+      const seen = new Set();
+      ['adult','k9','k5'].forEach(c => {
+        for (let i = 0; i < 2000; i++) { const d = draw(c); if (d) seen.add(d.id); }
+      });
+      return [...seen].filter(id => dutyById[id].track);
+    })()`);
+  assert.strictEqual(leaked.length, 0, `track duties were dealt: ${[...leaked].join(', ')}`);
+});
+
+run('ticking a track earns no merit and no droid', () => {
+  const res = ctx(`
+    (() => {
+      load();
+      state.log = [];
+      trackDuties('k5').forEach(d => trackDone(d.id, 'k5'));
+      return { merit: weekTotal('k5'), droids: countSince('k5', weekStart()), moons: trackCount('k5') };
+    })()`);
+  assert.strictEqual(res.merit, 0, 'a track tick paid merit');
+  assert.strictEqual(res.droids, 0, 'a track tick awarded a droid');
+  assert.strictEqual(res.moons, 2, `expected 2 track ticks, got ${res.moons}`);
+});
+
+run('every child has a track and it is reachable', () => {
+  const res = ctx(`
+    ['k9','k5'].map(id => {
+      const t = TRACKS[id];
+      const duties = trackDuties(id);
+      return { id, goal: t.goal, unit: t.unit, perWeek: duties.reduce((a, d) => a + 7 / d.days, 0) };
+    })`);
+  [...res].forEach((r) => {
+    assert.ok(r.perWeek >= r.goal, `${r.id}: goal ${r.goal} ${r.unit} but only ${r.perWeek} chances a week`);
+    // A goal you can only hit by never missing a single day is a streak in
+    // disguise, and streaks are the one thing this design refuses.
+    assert.ok(r.goal < r.perWeek, `${r.id}: goal ${r.goal} requires a perfect week`);
+  });
+});
+
+run('a track cannot be ticked twice in one day', () => {
+  const res = ctx(`
+    (() => {
+      load();
+      const d = trackDuties('k9')[0];
+      // The seed can land inside today by chance, so start from a known state.
+      state.duties[d.id].last = Date.now() - 86400000 * 2;
+      const before = doneToday(d.id);
+      trackDone(d.id, 'k9');
+      return { before, after: doneToday(d.id) };
+    })()`);
+  assert.strictEqual(res.before, false, 'a two-day-old tick counted as done today');
+  assert.strictEqual(res.after, true, 'doneToday did not latch after a tick');
+});
+
+run('chore balance between the children is even once tracks are separate', () => {
+  // The whole reason for the split: bedtime paying merit let the five-year-old
+  // win a week on twenty minutes of work against the nine-year-old's seventy.
+  const res = ctx(`
+    ['k9','k5'].map(id => {
+      const pool = DUTIES.filter(d => !d.track && canAccess(id, d.deck) && d.who.includes(id));
+      const merit = pool.reduce((a, d) => a + (d.pts * 7) / d.days, 0);
+      const mins = pool.reduce((a, d) => a + (d.mins * 7) / d.days, 0);
+      const target = CREW.find(c => c.id === id).target;
+      return { id, minsToTarget: target / (merit / mins) };
+    })`);
+  const [a, b] = [...res].map((r) => r.minsToTarget);
+  const ratio = Math.max(a, b) / Math.min(a, b);
+  assert.ok(ratio < 1.6, `children's real workloads differ by ${ratio.toFixed(2)}x (${Math.round(a)} vs ${Math.round(b)} min/wk)`);
+});
+
 run('no single duty can complete a week by itself', () => {
   // A week of perfect bedtimes is allowed to win — that's the point of pricing
   // the night watch high. But no one duty repeated alone should do it, or the
@@ -373,7 +446,9 @@ run('rescue offers the shortest job going', () => {
     (() => {
       const r = rescue('k5');
       if (!r) return false;
-      const pool = DUTIES.filter(d => d.who.includes('k5') && dueness(d.id) >= 0.3
+      // Mirror what eligible() actually considers — tracks are ticked off in
+      // their own strip and are never rescue candidates.
+      const pool = DUTIES.filter(d => !d.track && d.who.includes('k5') && dueness(d.id) >= 0.3
                                       && state.duties[d.id].snooze < Date.now());
       return r.mins === Math.min(...pool.map(d => d.mins));
     })()`);

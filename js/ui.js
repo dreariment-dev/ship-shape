@@ -144,6 +144,57 @@ function renderCard() {
   };
 }
 
+/**
+ * The personal-track strip: tonight's habits, ticked off in place. Kept below
+ * the card and out of the draw so it reads as a separate thing to win.
+ */
+function renderTrack() {
+  const host = $('#track-slot');
+  host.innerHTML = '';
+  const t = trackFor(state.activeCrew);
+  if (!t) return;
+
+  const duties = trackDuties(state.activeCrew);
+  const got = trackCount(state.activeCrew);
+  const hit = trackHit(state.activeCrew);
+
+  const box = el(`
+    <div class="track ${hit ? 'hit' : ''}">
+      <div class="track-head">
+        <span class="track-name">${t.icon} ${t.name}</span>
+        <span class="track-score">${got} <span>/ ${t.goal} ${t.unit}</span></span>
+      </div>
+      <div class="track-when">${t.when}</div>
+      <div class="track-rows"></div>
+      ${hit ? `<div class="hit">🏅 ${t.name} complete for the week</div>` : ''}
+    </div>`);
+
+  const rows = box.querySelector('.track-rows');
+  duties.forEach((d) => {
+    const done = doneToday(d.id);
+    const row = el(`
+      <button class="track-row ${done ? 'done' : ''}" ${done ? 'disabled' : ''}>
+        <span class="em">${d.icon}</span>
+        <span class="t">${d.name}</span>
+        <span class="tick">${done ? '✓' : '○'}</span>
+      </button>`);
+    if (!done) {
+      row.onclick = () => {
+        trackDone(d.id, state.activeCrew);
+        const n = trackCount(state.activeCrew);
+        toast(
+          trackHit(state.activeCrew)
+            ? `🏅 ${t.name} complete — ${n} ${t.unit} this week!`
+            : `${t.icon} ${n} of ${t.goal} ${t.unit}`
+        );
+        renderAll();
+      };
+    }
+    rows.append(row);
+  });
+  host.append(box);
+}
+
 function doComplete(duty, bonus = 1) {
   const pts = complete(duty.id, state.activeCrew, bonus);
   if (isSimple()) {
@@ -203,6 +254,24 @@ function renderShip() {
 
 // ── Crew view ───────────────────────────────────────────────────────────────
 
+/** The personal track as a peer of the chore reward, not a footnote to it. */
+function trackPanel(crewId) {
+  const t = trackFor(crewId);
+  if (!t) return null;
+  const got = trackCount(crewId);
+  const pct = Math.min(1, got / t.goal);
+  const best = Math.max(0, trackCount(crewId, 0)); // lifetime, for the long view
+  return el(`
+    <div class="panel">
+      <h3>${t.icon} ${t.name}</h3>
+      <div class="big-num">${got} <span style="font-size:16px;color:var(--dim)">/ ${t.goal}</span></div>
+      <div class="sub-num">${t.unit} this week — kept separate from merit</div>
+      <div class="bar ${band(pct)}"><span style="width:${pct * 100}%"></span></div>
+      ${trackHit(crewId) ? `<div class="hit">🏅 ${t.name} complete</div>` : ''}
+      <div class="sub-num" style="margin-top:8px">${best} ${t.unit} all told</div>
+    </div>`);
+}
+
 /** The decks you're answerable for — responsibility you can see is responsibility. */
 function quartersPanel(crewId) {
   const mine = DECKS.filter((k) => k.owners?.includes(crewId));
@@ -246,21 +315,25 @@ function renderCrew() {
         ${done >= goal ? '<div class="hit">🏅 Mission complete!</div>' : ''}
       </div>`));
 
+    const tp = trackPanel(id);
+    if (tp) wrap.append(tp);
+
     const q = quartersPanel(id);
     if (q) wrap.append(q);
 
-    // The hangar is the weekly goal made visible: fill all 24 slots by Sunday
-    // and you've rescued a whole crew. It empties each week, so the collection
-    // never "completes" and stops being a reward — the old lifetime version
-    // filled up for good inside a fortnight.
-    const crews = Math.floor(lifetime(id) / (crew().target || 1));
+    // The hangar IS the weekly goal made visible — one slot per droid needed,
+    // so filling it by Sunday is the whole instruction. It empties each week;
+    // the old lifetime version filled up for good inside a fortnight and
+    // stopped being a reward at all.
+    const slots = DROIDS.slice(0, goal);
+    const crews = Math.floor(countSince(id, 0) / goal);
     wrap.append(el(`
       <div class="panel">
         <h3>Hangar bay</h3>
         <div class="hangar">
-          ${DROIDS.map(([em], i) => `<div class="${i < done ? '' : 'locked'}" title="${DROIDS[i][1]}">${em}</div>`).join('')}
+          ${slots.map(([em, nm], i) => `<div class="${i < done ? '' : 'locked'}" title="${nm}">${em}</div>`).join('')}
         </div>
-        <div class="sub-num">${Math.min(done, DROIDS.length)} of ${DROIDS.length} aboard this week${crews ? ` · ${crews} crew${crews > 1 ? 's' : ''} rescued so far` : ''}</div>
+        <div class="sub-num">${Math.min(done, goal)} of ${goal} aboard this week${crews ? ` · ${crews} crew${crews > 1 ? 's' : ''} rescued so far` : ''}</div>
       </div>`));
     return;
   }
@@ -274,6 +347,9 @@ function renderCrew() {
       <div class="bar ${band(pctToTarget)}"><span style="width:${pctToTarget * 100}%"></span></div>
       ${targetHit(id) ? '<div class="hit">🏅 Target met — award earned</div>' : ''}
     </div>`));
+
+  const tp = trackPanel(id);
+  if (tp) wrap.append(tp);
 
   const q = quartersPanel(id);
   if (q) wrap.append(q);
@@ -476,7 +552,10 @@ function openSettings() {
 
 function renderAll() {
   renderHud();
-  if (view === 'duty') renderCard();
+  if (view === 'duty') {
+    renderCard();
+    renderTrack();
+  }
   if (view === 'ship') renderShip();
   if (view === 'crew') renderCrew();
 }

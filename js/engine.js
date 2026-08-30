@@ -150,6 +150,9 @@ function eligible(crewId, exclude = []) {
   const now = Date.now();
   return DUTIES.filter(
     (d) =>
+      // Track duties are ticked off in their own strip, never dealt as cards —
+      // four nightly habits would otherwise swamp the draw.
+      !d.track &&
       canAccess(crewId, d.deck) &&
       d.who.includes(crewId) &&
       !heldForOwner(crewId, d) &&
@@ -282,9 +285,42 @@ function monthStart() {
 
 function totalSince(crewId, since) {
   return state.log
-    .filter((e) => e.crew === crewId && e.t >= since)
+    .filter((e) => e.crew === crewId && e.t >= since && !e.track)
     .reduce((a, e) => a + e.pts, 0);
 }
+
+// ── Personal tracks ─────────────────────────────────────────────────────────
+
+const trackFor = (crewId) => TRACKS[crewId] ?? null;
+
+/** The habits on this crew member's track, in roster order. */
+function trackDuties(crewId) {
+  const t = trackFor(crewId);
+  return t ? DUTIES.filter((d) => d.track === t.id && d.who.includes(crewId)) : [];
+}
+
+/** Ticked off within the last day — one per day is the whole point. */
+const doneToday = (dutyId) => Date.now() - state.duties[dutyId].last < DAY;
+
+function trackCount(crewId, since = weekStart()) {
+  const t = trackFor(crewId);
+  if (!t) return 0;
+  return state.log.filter((e) => e.crew === crewId && e.track === t.id && e.t >= since).length;
+}
+
+/** Tick a habit. Earns no merit and no droid — that's the separation. */
+function trackDone(dutyId, crewId) {
+  const t = trackFor(crewId);
+  state.duties[dutyId].last = Date.now();
+  state.duties[dutyId].skips = 0;
+  state.log.push({ t: Date.now(), crew: crewId, duty: dutyId, pts: 0, track: t.id });
+  save();
+}
+
+const trackHit = (crewId) => {
+  const t = trackFor(crewId);
+  return !!t && trackCount(crewId) >= t.goal;
+};
 
 const weekTotal = (crewId) => totalSince(crewId, weekStart());
 const monthTotal = (crewId) => totalSince(crewId, monthStart());
@@ -293,7 +329,7 @@ const lifetime = (crewId) => totalSince(crewId, 0);
 // Cadet's droid count, and a drill bonus shouldn't conjure a free droid.
 const countSince = (crewId, since) =>
   state.log.filter(
-    (e) => e.crew === crewId && e.t >= since && !e.duty.startsWith('bonus:')
+    (e) => e.crew === crewId && e.t >= since && !e.track && !e.duty.startsWith('bonus:')
   ).length;
 
 function crewById(id) {

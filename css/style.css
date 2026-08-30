@@ -218,6 +218,58 @@ main {
 .assist { display: flex; gap: 10px; margin-top: 14px; }
 .assist button { flex: 1; }
 
+/* ── Personal track ───────────────────────────────────────────────────────── */
+
+/* Deliberately not styled like a duty card: this is a second thing to win,
+   and it should not read as more chores. */
+.track {
+  margin-top: 14px;
+  border: 1px solid #3a3560;
+  border-radius: 16px;
+  background: linear-gradient(160deg, #1a1738, #12102a);
+  padding: 14px;
+}
+.track.hit { border-color: #46d98a; }
+.track-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.track-name { font-size: 15px; font-weight: 700; }
+.track-score {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 18px;
+  color: #c3b5ff;
+  white-space: nowrap;
+}
+.track-score span { font-size: 12px; color: var(--dim); }
+.track-when {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 2px;
+}
+.track-rows { display: grid; gap: 8px; margin-top: 10px; }
+.track-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid #3a3560;
+  border-radius: 12px;
+  background: #16143050;
+  color: var(--text);
+  text-align: left;
+  font-size: 15px;
+}
+.track-row .em { font-size: 22px; }
+.track-row .t { flex: 1; }
+.track-row .tick { font-size: 20px; color: #7d74b8; }
+.track-row:active { transform: scale(0.99); }
+.track-row.done { opacity: 0.5; }
+.track-row.done .tick { color: var(--green); }
+
+body.simple .track-row { min-height: 62px; font-size: 17px; }
+body.simple .track-row .em { font-size: 28px; }
+
 .empty { text-align: center; color: var(--dim); padding: 40px 20px; }
 .empty .big { font-size: 46px; display: block; margin-bottom: 10px; }
 

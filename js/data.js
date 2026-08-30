@@ -15,16 +15,14 @@ const TIERS = {
 // what a simple-mode crew member actually sees — a count of droids, because a
 // five-year-old can count droids and cannot read a points total.
 //
-// The Cadet's goal is 24, one full hangar, which the hangar bay then fills and
-// empties weekly. Four nightly duties can yield 28 on their own, so a week of
-// perfect bedtimes and a clear table completes it without a single chore —
-// that is deliberate. Seven consecutive good bedtimes is a genuinely good week
-// and ought to win. The lever if you'd rather chores mattered more is the
-// merit on the night watch, not the goal.
+// Both children also have a personal track (see TRACKS) that is scored
+// entirely separately — bedtime and homework are not cleaning, and letting
+// them pay merit meant the five-year-old could win a week doing twenty
+// minutes of actual work against the nine-year-old's seventy-seven.
 const CREW = [
   { id: 'adult', name: 'Captain',   emoji: '🧑‍🚀', target: 500, mode: 'full'  },
   { id: 'k9',    name: 'Commander', emoji: '🫡',   target: 200, mode: 'full'  },
-  { id: 'k5',    name: 'Cadet',     emoji: '👾',   target: 400, mode: 'simple', goal: 24 },
+  { id: 'k5',    name: 'Cadet',     emoji: '👾',   target: 150, mode: 'simple', goal: 16 },
 ];
 
 // Rank thresholds are multiples of a crew member's own weekly target, so the
@@ -39,6 +37,29 @@ const RANKS = [
   { at: 14,   name: 'Captain' },
   { at: 25,   name: 'Fleet Admiral' },
 ];
+
+// A personal track is a second, parallel economy: nightly or daily habits that
+// aren't cleaning and mustn't compete with it. Track duties earn no merit and
+// no droids, never enter the card draw, and are ticked off in their own strip.
+// Each child has one, so each has two rewards to chase.
+const TRACKS = {
+  k5: {
+    id: 'nightwatch',
+    name: 'Night Watch',
+    icon: '🌙',
+    when: 'Tonight',
+    unit: 'moons',
+    goal: 10, // of 14 possible — two poor nights and you can still win the week
+  },
+  k9: {
+    id: 'research',
+    name: 'Research',
+    icon: '🔭',
+    when: 'Today',
+    unit: 'logs',
+    goal: 8, // of 14 — homework isn't a weekend thing, so this can't be 14
+  },
+};
 
 const DECKS = [
   { id: 'galley',   name: 'The Galley',            sub: 'Kitchen',        zone: 'lower',   emoji: '🍳' },
@@ -168,13 +189,14 @@ const DUTIES = [
   { deck: 'hydro', name: 'Scrub the grout',           icon: '🧱', tier: 'seasonal', mins: 40, who: ADULT, pts: 150 },
 
   // ── Crew Quarters (same template on each of the three) ────────────────────
-  // ── The Cadet's night watch ───────────────────────────────────────────────
-  // Not chores, but the same machinery works: nightly cadence, done or not
-  // done. Priced well above anything else on their sheet because these are
-  // the two behaviours actually worth buying. Cadet-only by design — the
-  // Commander gets no credit for the Cadet's bedtime.
-  { deck: 'bunkc', name: 'Sleep in your own bed',  icon: '🌙', tier: 'daily', mins: 10, pts: 25, who: ['k5'], owners: ['k5'] },
-  { deck: 'bunkc', name: 'Asleep by half past 8',  icon: '⏰', tier: 'daily', mins: 10, pts: 25, who: ['k5'], owners: ['k5'] },
+  // ── Personal tracks ───────────────────────────────────────────────────────
+  // Scored on their own track, never in merit. pts is 0 so they also carry no
+  // weight in deck integrity — a made bed says something about the room, a
+  // good night's sleep does not.
+  { deck: 'bunkc', name: 'Sleep in your own bed',  icon: '🌙', tier: 'daily', mins: 0, pts: 0, who: ['k5'], owners: ['k5'], track: 'nightwatch' },
+  { deck: 'bunkc', name: 'Asleep by half past 8',  icon: '⏰', tier: 'daily', mins: 0, pts: 0, who: ['k5'], owners: ['k5'], track: 'nightwatch' },
+  { deck: 'bunkb', name: 'Homework done',          icon: '📓', tier: 'daily', mins: 0, pts: 0, who: ['k9'], owners: ['k9'], track: 'research' },
+  { deck: 'bunkb', name: 'Read for 20 minutes',    icon: '📖', tier: 'daily', mins: 0, pts: 0, who: ['k9'], owners: ['k9'], track: 'research' },
 
   ...['bunka', 'bunkb', 'bunkc'].flatMap((deck) => [
     { deck, name: 'Make the bed',              icon: '🛏️', tier: 'often',    mins: 2,  who: ALL },
