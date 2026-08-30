@@ -28,11 +28,12 @@ const canDo = (crewId, d) => access(crewId, d.deck) && d.who.includes(crewId);
 const SHORT = { adult: 'Cpt', k9: 'Cdr', k5: 'Cdt' };
 const CREW = vm.runInContext('CREW', c).map((cw) => ({ ...cw, short: SHORT[cw.id] ?? cw.id }));
 
-const TIER_ORDER = ['daily', 'often', 'weekly', 'monthly', 'seasonal'];
+const TIER_ORDER = ['daily', 'often', 'weekly', 'biweekly', 'monthly', 'seasonal'];
 const TIER_META = {
   daily:    { label: 'Daily',     every: 'every day',     cls: 'dl' },
   often:    { label: 'Routine',   every: 'every 3 days',  cls: 'r' },
   weekly:   { label: 'Scheduled', every: 'every week',    cls: 's' },
+  biweekly: { label: 'Fortnightly', every: 'every 2 weeks', cls: 'f' },
   monthly:  { label: 'Overhaul',  every: 'every month',   cls: 'o' },
   seasonal: { label: 'Drydock',   every: 'every 3 months', cls: 'd' },
 };
@@ -175,6 +176,7 @@ const html = `<title>Ship Shape Duty Roster</title>
   --daily: #4fd6ff;
   --routine: #46d98a;
   --scheduled: #b8d94a;
+  --fortnightly: #dfc93f;
   --overhaul: #ffb845;
   --drydock: #ff6b8a;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
@@ -379,6 +381,7 @@ td { padding: 10px; vertical-align: middle; }
 .tier.dl { color: var(--daily); }
 .tier.r { color: var(--routine); }
 .tier.s { color: var(--scheduled); }
+.tier.f { color: var(--fortnightly); }
 .tier.o { color: var(--overhaul); }
 .tier.d { color: var(--drydock); }
 .every { display: block; font-size: 11px; color: var(--dim); margin-top: 3px; }

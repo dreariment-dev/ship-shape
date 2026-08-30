@@ -7,6 +7,7 @@ const TIERS = {
   daily:    { days: 1,  pts: 5,   label: 'Daily' },
   often:    { days: 3,  pts: 10,  label: 'Routine' },
   weekly:   { days: 7,  pts: 25,  label: 'Scheduled' },
+  biweekly: { days: 14, pts: 35,  label: 'Fortnightly' },
   monthly:  { days: 30, pts: 50,  label: 'Overhaul' },
   seasonal: { days: 90, pts: 100, label: 'Drydock' },
 };
@@ -117,6 +118,7 @@ const DUTIES = [
   { deck: 'galley', name: 'Tidy the kitchen counter', icon: '🧸', tier: 'daily', mins: 5, pts: 8, who: ALL, owners: ['k9', 'k5'] },
   { deck: 'galley', name: 'Clear the table',          icon: '🍽️', tier: 'daily',    mins: 3,  who: ALL, owners: ['k9', 'k5'] },
   { deck: 'galley', name: 'Sweep the galley floor',   icon: '🧹', tier: 'often',    mins: 5,  who: ALL },
+  { deck: 'galley', name: 'Dust the shelves and tops', icon: '🪶', tier: 'weekly',  mins: 5,  who: ALL },
   { deck: 'galley', name: 'Wipe down the worktops',   icon: '🧽', tier: 'often',    mins: 5,  who: GROWN },
   { deck: 'galley', name: 'Empty and rinse the bin',  icon: '🗑️', tier: 'often',    mins: 5,  who: ADULT },
   { deck: 'galley', name: 'Wipe the hob',             icon: '🔥', tier: 'weekly',   mins: 5,  who: ADULT },
@@ -125,20 +127,19 @@ const DUTIES = [
   { deck: 'galley', name: 'Wipe the cupboard fronts', icon: '🚪', tier: 'monthly',  mins: 15, who: GROWN },
   { deck: 'galley', name: 'Clear out and wipe a fridge shelf', icon: '❄️', tier: 'monthly', mins: 15, who: ADULT },
   { deck: 'galley', name: 'Descale the kettle',       icon: '🫖', tier: 'monthly',  mins: 5,  who: ADULT },
-  { deck: 'galley', name: 'Skirting boards',          icon: '📏', tier: 'monthly',  mins: 15, who: GROWN },
-  { deck: 'galley', name: 'Clean the windows',        icon: '🪟', tier: 'monthly',  mins: 15, who: ADULT },
+  { deck: 'galley', name: 'Skirting boards',          icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
+  { deck: 'galley', name: 'Clean the windows',        icon: '🪟', tier: 'biweekly',  mins: 15, who: ALL },
   { deck: 'galley', name: 'Clean inside the oven',    icon: '🔥', tier: 'seasonal', mins: 45, who: ADULT, pts: 150 },
   { deck: 'galley', name: 'Defrost and wipe the freezer', icon: '🧊', tier: 'seasonal', mins: 30, who: ADULT },
 
   // ── Bridge ────────────────────────────────────────────────────────────────
-  { deck: 'bridge', name: 'Clutter sweep',            icon: '📦', tier: 'often',    mins: 5,  who: ALL },
-  { deck: 'bridge', name: 'Plump cushions, fold the throws', icon: '🛋️', tier: 'often', mins: 3, who: ALL },
-  { deck: 'bridge', name: 'Dust the surfaces',        icon: '🪶', tier: 'weekly',   mins: 5,  who: GROWN },
+  { deck: 'bridge', name: 'Tidy the lounge',          icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
+  { deck: 'bridge', name: 'Dust the surfaces',        icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
   { deck: 'bridge', name: 'Hoover the bridge',        icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
   { deck: 'bridge', name: 'Wipe the screen and remotes', icon: '📺', tier: 'monthly', mins: 5, who: GROWN },
   { deck: 'bridge', name: 'Hoover under the sofa cushions', icon: '🛋️', tier: 'monthly', mins: 10, who: GROWN },
-  { deck: 'bridge', name: 'Skirting boards',          icon: '📏', tier: 'monthly',  mins: 15, who: GROWN },
-  { deck: 'bridge', name: 'Clean the windows',        icon: '🪟', tier: 'monthly',  mins: 15, who: ADULT },
+  { deck: 'bridge', name: 'Skirting boards',          icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
+  { deck: 'bridge', name: 'Clean the windows',        icon: '🪟', tier: 'biweekly',  mins: 15, who: ALL },
   { deck: 'bridge', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
 
   // ── Wardroom ──────────────────────────────────────────────────────────────
@@ -149,18 +150,18 @@ const DUTIES = [
   { deck: 'playroom', name: 'Hoover the playroom',    icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
   { deck: 'playroom', name: 'Sort out one toy box',   icon: '🪀', tier: 'monthly',  mins: 20, who: ALL },
   { deck: 'playroom', name: 'Wipe the doors and light switches', icon: '🚪', tier: 'monthly', mins: 10, who: ALL },
-  { deck: 'playroom', name: 'Skirting boards',        icon: '📏', tier: 'monthly',  mins: 15, who: GROWN },
-  { deck: 'playroom', name: 'Clean the windows',      icon: '🪟', tier: 'monthly',  mins: 15, who: ADULT },
+  { deck: 'playroom', name: 'Skirting boards',        icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
+  { deck: 'playroom', name: 'Clean the windows',      icon: '🪟', tier: 'biweekly',  mins: 15, who: ALL },
   { deck: 'playroom', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
   { deck: 'playroom', name: 'Cull the broken toys and lost pieces', icon: '🗑️', tier: 'seasonal', mins: 30, who: ADULT },
 
   // ── Ops ───────────────────────────────────────────────────────────────────
   { deck: 'ops', name: 'Paper and clutter sweep',     icon: '📄', tier: 'often',    mins: 5,  who: GROWN },
-  { deck: 'ops', name: 'Dust the desk and shelves',   icon: '🪶', tier: 'weekly',   mins: 5,  who: GROWN },
+  { deck: 'ops', name: 'Dust the desk and shelves',   icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
   { deck: 'ops', name: 'Hoover Ops',                  icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
   { deck: 'ops', name: 'Wipe screens and keyboard',   icon: '⌨️', tier: 'monthly',  mins: 5,  who: GROWN },
-  { deck: 'ops', name: 'Skirting boards',             icon: '📏', tier: 'monthly',  mins: 10, who: GROWN },
-  { deck: 'ops', name: 'Clean the windows',           icon: '🪟', tier: 'monthly',  mins: 10, who: ADULT },
+  { deck: 'ops', name: 'Skirting boards',             icon: '📏', tier: 'monthly',  mins: 10, who: ALL },
+  { deck: 'ops', name: 'Clean the windows',           icon: '🪟', tier: 'biweekly',  mins: 10, who: ALL },
   { deck: 'ops', name: 'File or shred the paperwork', icon: '🗄️', tier: 'monthly',  mins: 20, who: ADULT },
   { deck: 'ops', name: 'Cable tidy',                  icon: '🔌', tier: 'seasonal', mins: 20, who: ADULT },
 
@@ -183,7 +184,7 @@ const DUTIES = [
   { deck: 'hydro', name: 'Mop the floor',             icon: '🪣', tier: 'weekly',   mins: 10, who: GROWN },
   { deck: 'hydro', name: 'Descale the showerhead and screen', icon: '🚿', tier: 'monthly', mins: 20, who: ADULT },
   { deck: 'hydro', name: 'Wash the bath mat',         icon: '🧺', tier: 'monthly',  mins: 5,  who: ADULT },
-  { deck: 'hydro', name: 'Clean the windows',         icon: '🪟', tier: 'monthly',  mins: 10, who: ADULT },
+  { deck: 'hydro', name: 'Clean the windows',         icon: '🪟', tier: 'biweekly',  mins: 10, who: ALL },
   { deck: 'hydro', name: 'Scrub the grout',           icon: '🧱', tier: 'seasonal', mins: 40, who: ADULT, pts: 150 },
 
   // ── Crew Quarters (same template on each of the three) ────────────────────
@@ -207,8 +208,8 @@ const DUTIES = [
     { deck, name: 'Change the bedding',        icon: '🛌', tier: 'weekly',   mins: 10, who: ADULT },
     { deck, name: 'Hoover the quarters',       icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
     { deck, name: 'Under the bed',             icon: '🔦', tier: 'monthly',  mins: 15, who: GROWN },
-    { deck, name: 'Skirting boards',           icon: '📏', tier: 'monthly',  mins: 10, who: GROWN },
-    { deck, name: 'Clean the windows',         icon: '🪟', tier: 'monthly',  mins: 10, who: ADULT },
+    { deck, name: 'Skirting boards',           icon: '📏', tier: 'monthly',  mins: 10, who: ALL },
+    { deck, name: 'Clean the windows',         icon: '🪟', tier: 'biweekly',  mins: 10, who: ALL },
     { deck, name: 'Sort and fold the wardrobe', icon: '👕', tier: 'seasonal', mins: 30, who: ADULT },
   ]),
 
