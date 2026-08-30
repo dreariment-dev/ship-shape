@@ -114,10 +114,9 @@ const DUTIES = [
   // The Galley is shared ground, but these two are the children's own standing
   // orders: their stuff, their job to shift it. Duty-level owners override the
   // deck's, so first refusal applies to these without reserving the whole room.
-  { deck: 'galley', name: 'Your things off the island', icon: '🧸', tier: 'daily', mins: 3, who: ALL, owners: ['k9', 'k5'] },
+  { deck: 'galley', name: 'Tidy the kitchen counter', icon: '🧸', tier: 'daily', mins: 5, pts: 8, who: ALL, owners: ['k9', 'k5'] },
   { deck: 'galley', name: 'Clear the table',          icon: '🍽️', tier: 'daily',    mins: 3,  who: ALL, owners: ['k9', 'k5'] },
   { deck: 'galley', name: 'Sweep the galley floor',   icon: '🧹', tier: 'often',    mins: 5,  who: ALL },
-  { deck: 'galley', name: 'Stow anything that lives elsewhere', icon: '📦', tier: 'often', mins: 3, who: ALL },
   { deck: 'galley', name: 'Wipe down the worktops',   icon: '🧽', tier: 'often',    mins: 5,  who: GROWN },
   { deck: 'galley', name: 'Empty and rinse the bin',  icon: '🗑️', tier: 'often',    mins: 5,  who: ADULT },
   { deck: 'galley', name: 'Wipe the hob',             icon: '🔥', tier: 'weekly',   mins: 5,  who: ADULT },
@@ -145,8 +144,7 @@ const DUTIES = [
   // ── Wardroom ──────────────────────────────────────────────────────────────
   // The Playroom is shared ground for both children, so it carries more jobs
   // they can actually be dealt than a second sitting room would.
-  { deck: 'playroom', name: 'Toys back in their boxes', icon: '🧸', tier: 'often',  mins: 5,  who: ALL },
-  { deck: 'playroom', name: 'Clutter sweep',          icon: '📦', tier: 'often',    mins: 5,  who: ALL },
+  { deck: 'playroom', name: 'Tidy the playroom',      icon: '🧸', tier: 'often',    mins: 8,  pts: 20, who: ALL },
   { deck: 'playroom', name: 'Dust the surfaces',      icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
   { deck: 'playroom', name: 'Hoover the playroom',    icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
   { deck: 'playroom', name: 'Sort out one toy box',   icon: '🪀', tier: 'monthly',  mins: 20, who: ALL },
@@ -199,9 +197,12 @@ const DUTIES = [
   { deck: 'bunkb', name: 'Read for 20 minutes',    icon: '📖', tier: 'daily', mins: 0, pts: 0, who: ['k9'], owners: ['k9'], track: 'research' },
 
   ...['bunka', 'bunkb', 'bunkc'].flatMap((deck) => [
+    // Make the bed stays on its own: it's one concrete action with a visible
+    // result, which is the opposite of the vague "tidy up" that tends to
+    // bounce off a child. Everything else that was just putting-things-away
+    // is folded into one duty.
     { deck, name: 'Make the bed',              icon: '🛏️', tier: 'often',    mins: 2,  who: ALL },
-    { deck, name: 'Everything back where it lives', icon: '📦', tier: 'often', mins: 5, who: ALL },
-    { deck, name: 'Dirty clothes into the basket', icon: '🧺', tier: 'often', mins: 2,  who: ALL },
+    { deck, name: 'Tidy your quarters',        icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
     { deck, name: 'Dust the surfaces',         icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
     { deck, name: 'Change the bedding',        icon: '🛌', tier: 'weekly',   mins: 10, who: ADULT },
     { deck, name: 'Hoover the quarters',       icon: '🌀', tier: 'weekly',   mins: 10, who: GROWN },
