@@ -1,7 +1,7 @@
 # Ship Shape — handoff
 
 Gamified cleaning for a household of four, themed as keeping a starship running.
-Built 29–30 Aug 2026 in one session; eighteen releases. **Nobody has used it
+Built 29–30 Aug 2026 in one session; nineteen releases. **Nobody has used it
 for a real week yet**, so every number below is a considered guess, not a
 measured one.
 
@@ -113,6 +113,15 @@ from `SPECIALITIES` by name pattern — first match wins, so the order of that
 list is load-bearing. The counts come off the log, like history, so there's no
 tally to keep in step and nothing a reset can half-wipe.
 
+**A duty's id is derived from its name**, so renaming one in the roster makes it
+a *different* duty: fresh staggered decay, and everything logged under the old
+id orphaned. Adding duties and retuning cadences are both clean — only renaming
+costs anything. Because of that, `complete()` **stamps the speciality onto the
+log entry** rather than looking it up later: a rename would otherwise take
+earned droids back out of a hangar that promises never to, which is the failure
+this whole mechanic exists to avoid. Entries from before the stamp fall back to
+the lookup, so old saves keep their droids. Two tests pin both halves.
+
 **Weeks turn over Friday 07:00**, because that's when the scores are read and
 the treat is decided. Thursday evening counts toward the week being judged;
 after the turn starts the next one.
@@ -174,7 +183,7 @@ the stair spindles stay adults-only — same name, different work.
 
 ## Verified, and not
 
-`node tests/engine.test.js` — 62 tests, no framework, no dependencies. They pin
+`node tests/engine.test.js` — 64 tests, no framework, no dependencies. They pin
 the safety rules, the access rules, first refusal *and* its backstop, that
 nothing pays out before sign-off, that merit lands on whoever did the work, that
 neglect raises pay and stays capped, the Friday week boundary in all four cases
@@ -187,7 +196,8 @@ duty maps to any, that thresholds climb, that everyone can reach four first
 droids inside four weeks, that droids come off the log and a drill bonus earns
 none, that **a droid earned weeks ago survives a bad week**, and that the v1
 name migration renames the old defaults without touching a name the crew chose,
-and that **nobody is shown a droid they could never earn**.
+that **nobody is shown a droid they could never earn**, and that a droid
+survives its duty being renamed — from both a stamped and an unstamped save.
 
 `freshness()` is derived from elapsed time, so a just-completed duty reads
 0.99999994 rather than 1. Assertions use a `near()` helper — **don't reintroduce
@@ -259,7 +269,7 @@ independent agents flag separately is almost certainly real.
   old handset and editable without tooling. ~2,400 lines all in.
 - **Bump `CACHE` in `sw.js` on every release** or installed phones keep the old
   files. The app reloads itself once when the new worker takes over, so nobody
-  ever reinstalls. Currently `shipshape-v18`.
+  ever reinstalls. Currently `shipshape-v19`.
 - `tools/build-roster.js` regenerates the browsable duty reference from
   `data.js`, reading the crew and roster live so it can't drift. Published at
   https://claude.ai/code/artifact/f90a70c4-95a8-465d-a12f-941c8a360bc2

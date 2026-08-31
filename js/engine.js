@@ -339,7 +339,12 @@ function complete(dutyId, crewId, bonus = 1) {
   s.last = Date.now();
   s.skips = 0;
   s.snooze = 0;
-  state.log.push({ t: Date.now(), crew: crewId, duty: dutyId, pts });
+  // The speciality is stamped on the entry rather than looked up later. Duty
+  // ids are derived from the duty's name, so renaming one in the roster makes
+  // it a different duty and orphans everything logged under the old id —
+  // which would silently take droids back out of a hangar that promises never
+  // to. What was done is a fact about that moment; the log should hold it.
+  state.log.push({ t: Date.now(), crew: crewId, duty: dutyId, pts, spec: dutyById[dutyId].spec });
   save();
   return pts;
 }
@@ -499,10 +504,15 @@ function specsFor(crewId) {
   );
 }
 
-/** How many duties of one speciality this crew member has done, all time. */
+/**
+ * How many duties of one speciality this crew member has done, all time.
+ *
+ * Entries written before the speciality was stamped on them fall back to
+ * looking the duty up, so an existing save keeps its droids.
+ */
 function specCount(crewId, specId) {
   return state.log.filter(
-    (e) => e.crew === crewId && !e.track && dutyById[e.duty]?.spec === specId
+    (e) => e.crew === crewId && !e.track && (e.spec ?? dutyById[e.duty]?.spec) === specId
   ).length;
 }
 

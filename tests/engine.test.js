@@ -979,3 +979,40 @@ run('nobody is shown a droid they could never earn', () => {
     assert.ok(![...r.shown].includes('sanitation'), `${r.id} is offered sanitation droids they cannot reach`)
   );
 });
+
+run('a droid survives its duty being renamed', () => {
+  // Duty ids come from the duty's name, so renaming one in the roster makes it
+  // a different duty and orphans its history. The speciality is stamped on the
+  // log entry precisely so that can't quietly empty a hangar — the collection
+  // promises never to take anything back, including by accident.
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const win = DUTIES.find(d => d.spec === 'glass' && d.who.includes('k5'));
+      for (let i = 0; i < 3; i++) complete(win.id, 'k5');
+      const stamped = state.log.every(e => e.spec === 'glass');
+      const before = droidsAboard('k5');
+      // Simulate the rename: the old id no longer resolves to any duty.
+      state.log.forEach(e => { e.duty = e.duty + '-renamed'; });
+      return { stamped, before, after: droidsAboard('k5'), glass: specCount('k5', 'glass') };
+    })()`);
+  assert.strictEqual(res.stamped, true, 'the speciality was not recorded on the log entry');
+  assert.strictEqual(res.before, 1, 'the Glazier droid did not arrive in the first place');
+  assert.strictEqual(res.after, 1, 'renaming the duty took an earned droid back');
+  assert.strictEqual(res.glass, 3, 'the speciality count was lost with the old duty id');
+});
+
+run('a save written before the stamp keeps its droids', () => {
+  // Existing installs have log entries with no `spec` field at all; those must
+  // still resolve through the duty they name.
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const win = DUTIES.find(d => d.spec === 'glass' && d.who.includes('k5'));
+      for (let i = 0; i < 3; i++)
+        state.log.push({ t: Date.now(), crew: 'k5', duty: win.id, pts: 35 });
+      return { aboard: droidsAboard('k5'), glass: specCount('k5', 'glass') };
+    })()`);
+  assert.strictEqual(res.glass, 3, 'unstamped entries stopped counting towards a speciality');
+  assert.strictEqual(res.aboard, 1, 'an old save lost its droids');
+});
