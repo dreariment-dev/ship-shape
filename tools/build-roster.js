@@ -25,7 +25,8 @@ const canDo = (crewId, d) => access(crewId, d.deck) && d.who.includes(crewId);
 
 // Read the crew from data.js too — hardcoding targets here is how this page
 // starts quietly lying about the app.
-const SHORT = { adult: 'Cpt', k9: 'Cdr', k5: 'Cdt' };
+// Both children are cadets, so the abbreviations can't be ranks any more.
+const SHORT = { adult: 'Cpt', k9: 'C1', k5: 'C2' };
 const CREW = vm.runInContext('CREW', c).map((cw) => ({ ...cw, short: SHORT[cw.id] ?? cw.id }));
 
 const TIER_ORDER = ['daily', 'often', 'weekly', 'biweekly', 'monthly', 'seasonal'];
@@ -441,7 +442,7 @@ td { padding: 10px; vertical-align: middle; }
     <div class="eyebrow">Ship Shape · Standing orders</div>
     <h1>Duty Roster</h1>
     <p class="lede">Every job the app can deal, across ten decks. <strong>Eligible</strong> is who <em>can</em> be dealt a duty, not who owns it — nothing is assigned. The draw picks from whoever's eligible, weighted by how overdue the job is and how many times it's been ducked.</p>
-    <p class="lede">Eligibility clears two gates. <strong>Access</strong>: the children keep their own quarters and share the Playroom and Galley, and the adults cover everything else. <strong>Safety</strong>: anything involving chemicals, heights or heft stays with the adults — so the Cadet still isn't handed the window cleaner in their own bedroom.</p>
+    <p class="lede">Eligibility clears two gates. <strong>Access</strong>: the children keep their own quarters and share the Playroom and Galley, and the adults cover everything else. <strong>Safety</strong>: anything involving chemicals, heights or heft stays with the adults — so a child still isn't handed the window cleaner in their own bedroom.</p>
     <p class="lede">A third rule sits on top. Your own patch is your responsibility, so a job you can do there is <strong>held for you</strong> — nobody else is offered it until it's half again past due, and only then does an adult pick up the slack. A <span class="pill held" style="width:auto;padding:2px 7px">dashed</span> pill means backstop only. Each child owns their bedroom and the two of them share the Playroom; the Galley is the one deck open to everybody at any time.</p>
   </header>
 

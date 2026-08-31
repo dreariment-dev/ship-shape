@@ -100,9 +100,9 @@ run('the draw keeps each child to their own decks', () => {
 });
 
 run('the children cannot be sent into each other rooms', () => {
-  assert.ok(!ctx("DECK_ACCESS.k9.includes('bunkc')"), 'Commander can reach the Cadet quarters');
-  assert.ok(!ctx("DECK_ACCESS.k5.includes('bunkb')"), 'Cadet can reach the Commander quarters');
-  assert.ok(!ctx("DECK_ACCESS.k9.includes('bunka')"), 'Commander can reach the adults quarters');
+  assert.ok(!ctx("DECK_ACCESS.k9.includes('bunkc')"), 'k9 can reach the other child\'s quarters');
+  assert.ok(!ctx("DECK_ACCESS.k5.includes('bunkb')"), 'k5 can reach the other child\'s quarters');
+  assert.ok(!ctx("DECK_ACCESS.k9.includes('bunka')"), 'k9 can reach the adults quarters');
 });
 
 run('every deck a child can reach really exists', () => {
@@ -278,7 +278,7 @@ run('ticking a track earns no merit and no droid', () => {
       return { merit: weekTotal('k5'), droids: countSince('k5', weekStart()), moons: trackCount('k5') };
     })()`);
   assert.strictEqual(res.merit, 0, 'a track tick paid merit');
-  assert.strictEqual(res.droids, 0, 'a track tick awarded a droid');
+  assert.strictEqual(res.droids, 0, 'a track tick counted as a duty done');
   assert.strictEqual(res.moons, 2, `expected 2 track ticks, got ${res.moons}`);
 });
 
@@ -333,22 +333,20 @@ run('no single duty can complete a week by itself', () => {
   // the night watch high. But no one duty repeated alone should do it, or the
   // app collapses to a single button.
   const res = ctx(`
-    CREW.filter(c => c.goal).map(c => {
-      const pool = DUTIES.filter(d => canAccess(c.id, d.deck) && d.who.includes(c.id));
+    CREW.map(c => {
+      const pool = DUTIES.filter(d => !d.track && canAccess(c.id, d.deck) && d.who.includes(c.id));
       return {
-        id: c.id, goal: c.goal, target: c.target,
-        bestCount: Math.max(...pool.map(d => 7 / d.days)),
+        id: c.id, target: c.target,
         bestMerit: Math.max(...pool.map(d => (d.pts * 7) / d.days)),
       };
     })`);
   [...res].forEach((r) => {
-    assert.ok(r.bestCount < r.goal, `${r.id}: one duty alone yields ${r.bestCount} of a ${r.goal} goal`);
     assert.ok(r.bestMerit < r.target, `${r.id}: one duty alone yields ${r.bestMerit} of a ${r.target} target`);
   });
 });
 
-run('the night watch belongs to the Cadet alone', () => {
-  // The Commander must not earn credit for the Cadet's bedtime, and it must
+run('the night watch belongs to the younger child alone', () => {
+  // The older child must not earn credit for the younger one's bedtime, and
   // never be dealt to an adult while it's merely due.
   const res = ctx(`
     (() => {
@@ -366,18 +364,22 @@ run('the night watch belongs to the Cadet alone', () => {
   assert.strictEqual(res.n, 2, 'expected two night-watch duties');
   [...res.who].forEach((w) => assert.strictEqual(w, 'k5', `night watch open to: ${w}`));
   assert.strictEqual(res.adultSaw, false, 'adult was dealt the night watch');
-  assert.strictEqual(res.k9Saw, false, 'Commander was dealt the Cadet night watch');
+  assert.strictEqual(res.k9Saw, false, 'the older child was dealt the younger one\'s night watch');
 });
 
-run('a simple-mode goal is reachable within the available pool', () => {
+run('both children run on identical mechanics', () => {
+  // "Both kids are cadets" is a rule, not a coat of paint: no per-crew mode,
+  // no separate win condition, nothing one child has that the other doesn't.
   const res = ctx(`
-    CREW.filter(c => c.goal).map(c => {
-      const pool = DUTIES.filter(d => canAccess(c.id, d.deck) && d.who.includes(c.id));
-      return { id: c.id, goal: c.goal, perWeek: Math.round(pool.reduce((a, d) => a + 7 / d.days, 0)) };
+    ['k9','k5'].map(id => {
+      const c = CREW.find(x => x.id === id);
+      return { id, keys: Object.keys(c).sort().join(','), rank: rankOf(id).current.name };
     })`);
-  [...res].forEach((r) => {
-    assert.ok(r.perWeek >= r.goal * 1.3, `${r.id}: only ${r.perWeek} completions/week available for a goal of ${r.goal}`);
-  });
+  const [a, b] = [...res];
+  assert.strictEqual(a.keys, b.keys, `the children carry different fields: ${a.keys} vs ${b.keys}`);
+  assert.ok(!a.keys.includes('mode'), 'a crew mode survived — simple mode is gone');
+  assert.ok(!a.keys.includes('goal'), 'a per-crew goal survived — the week is merit for everyone');
+  assert.ok(ctx('typeof rankOf("k5").progress') === 'number', 'the younger child has no rank progression');
 });
 
 run('every crew member can still reach their weekly target', () => {
@@ -468,7 +470,7 @@ run('a drill deals three distinct duties', () => {
 });
 
 run('rank climbs at the same rate for every crew member', () => {
-  // A Cadet hitting their small target should rank up exactly as fast as the
+  // A cadet hitting their small target should rank up exactly as fast as the
   // Captain hitting a large one — that's the whole point of the ladder.
   const res = ctx(`
     (() => {
@@ -488,7 +490,7 @@ run('bonus entries score but do not count as duties', () => {
       return { pts: weekTotal('k5'), duties: countSince('k5', 0) };
     })()`);
   assert.strictEqual(res.pts, 30);
-  assert.strictEqual(res.duties, 0, 'a drill bonus should not award a droid');
+  assert.strictEqual(res.duties, 0, 'a drill bonus was counted as a duty done');
 });
 
 run('reset: nothing done leaves the ship at zero and everything available', () => {
@@ -537,7 +539,7 @@ run('reset: wiping merit leaves the ship untouched', () => {
       return { mid, after: shipIntegrity(), merit: weekTotal('adult'), droids: countSince('k5', 0) };
     })()`);
   assert.strictEqual(res.merit, 0, 'merit survived a score wipe');
-  assert.strictEqual(res.droids, 0, 'droids survived a score wipe');
+  assert.strictEqual(res.droids, 0, 'completed duties survived a score wipe');
   assert.ok(near(res.after, res.mid), `wiping scores moved integrity: ${res.mid} -> ${res.after}`);
 });
 
@@ -789,22 +791,28 @@ run('history is derived from the log, week by week', () => {
   assert.strictEqual(res.allTime, 1599, `all-time should include this week, got ${res.allTime}`);
 });
 
-run('a won week is judged by what that crew member chases', () => {
-  // The Cadet wins on droids, everyone else on merit — the history has to use
-  // the same rule the weekly panel does, or the two disagree.
+run('a won week is the same rule for everybody', () => {
+  // One measure now: your own merit against your own target. History has to use
+  // the rule the weekly panel does, or the two disagree — and the targets have
+  // to stay scaled, so a child's winning number must not win the adult's week.
   const res = ctx(`
     (() => {
       load(); state.log = []; state.missions = {};
       const wk = weekStart() - 7 * 86400000;
-      const c5 = CREW.find(c => c.id === 'k5');
-      for (let i = 0; i < c5.goal; i++) state.log.push({ t: wk + 1000, crew: 'k5', duty: 'x', pts: 1 });
+      const small = CREW.find(c => c.id === 'k5').target;
+      state.log.push({ t: wk + 1000, crew: 'k5', duty: 'x', pts: small });
+      state.log.push({ t: wk + 1000, crew: 'adult', duty: 'x', pts: small });
       const w = pastWeeks(2)[0];
-      return { duties: w.crew.k5.duties, hitGoal: w.crew.k5.hitGoal, hitTarget: w.crew.k5.hitTarget,
-               weeksWon: allTime().crew.k5.weeksWon };
+      const all = allTime();
+      return {
+        k5Hit: w.crew.k5.hitTarget, adultHit: w.crew.adult.hitTarget,
+        k5Won: all.crew.k5.weeksWon, adultWon: all.crew.adult.weeksWon,
+      };
     })()`);
-  assert.strictEqual(res.hitGoal, true, 'hitting the droid goal was not recorded as a win');
-  assert.strictEqual(res.hitTarget, false, 'merit target should not have been met on 1-point duties');
-  assert.strictEqual(res.weeksWon, 1, 'the won week was not counted for a goal-based crew member');
+  assert.strictEqual(res.k5Hit, true, 'a child hit their own target and it was not recorded');
+  assert.strictEqual(res.adultHit, false, "a child's winning number also won the adult's week");
+  assert.strictEqual(res.k5Won, 1, 'the won week was not counted');
+  assert.strictEqual(res.adultWon, 0, 'an unwon week was counted');
 });
 
 run('track ticks are counted separately in history', () => {
@@ -837,4 +845,137 @@ run('a save missing new duties backfills them', () => {
       return !!state.duties[DUTIES[0].id];
     })()`);
   assert.strictEqual(ok, true);
+});
+
+// ── The hangar ──────────────────────────────────────────────────────────────
+
+run('every duty counts towards exactly one speciality', () => {
+  // A duty matching nothing can never be worked towards a droid, and would sit
+  // in the roster looking identical to one that can.
+  const res = ctx(`
+    (() => {
+      const unmatched = DUTIES.filter(d => !d.track && !d.spec).map(d => d.name);
+      const tracked = DUTIES.filter(d => d.track && d.spec).map(d => d.name);
+      const unknown = DUTIES.filter(d => d.spec && !SPECIALITIES.some(s => s.id === d.spec)).map(d => d.name);
+      return { unmatched, tracked, unknown };
+    })()`);
+  assert.strictEqual([...res.unmatched].length, 0, `no speciality: ${[...res.unmatched].join(', ')}`);
+  assert.strictEqual([...res.tracked].length, 0, `a track duty earns droids: ${[...res.tracked].join(', ')}`);
+  assert.strictEqual([...res.unknown].length, 0, `unknown speciality: ${[...res.unknown].join(', ')}`);
+});
+
+run('droid thresholds only ever climb', () => {
+  const bad = ctx(`
+    SPECIALITIES.filter(s => s.droids.some((d, i) => i && d.at <= s.droids[i - 1].at)).map(s => s.id)`);
+  assert.strictEqual([...bad].length, 0, `thresholds out of order: ${[...bad].join(', ')}`);
+});
+
+run('every crew member can reach several first droids at an ordinary pace', () => {
+  // Two specialities live in rooms the children can't be sent to, so a child's
+  // hangar is expected to fill more slowly and stop sooner. What isn't
+  // acceptable is a hangar that stays empty: everyone needs a few droids
+  // arriving in the first month or the collection never starts.
+  const res = ctx(`
+    CREW.map(c => {
+      const near = SPECIALITIES.filter(s => {
+        const perWeek = DUTIES
+          .filter(d => d.spec === s.id && canAccess(c.id, d.deck) && d.who.includes(c.id))
+          .reduce((a, d) => a + 7 / d.days, 0);
+        return perWeek > 0 && s.droids[0].at / perWeek <= 4;
+      });
+      return { id: c.id, near: near.length };
+    })`);
+  [...res].forEach((r) => {
+    assert.ok(r.near >= 4, `${r.id}: only ${r.near} specialities yield a droid inside four weeks`);
+  });
+});
+
+run('droids come off the log, and a drill bonus earns none', () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const win = DUTIES.find(d => d.spec === 'glass' && d.who.includes('k5'));
+      const before = badgeSnapshot('k5');
+      for (let i = 0; i < 3; i++) state.log.push({ t: Date.now(), crew: 'k5', duty: win.id, pts: 10 });
+      state.log.push({ t: Date.now(), crew: 'k5', duty: 'bonus:redalert', pts: 40 });
+      const crossed = badgesCrossed('k5', before);
+      const glass = badgesFor('k5').find(s => s.id === 'glass');
+      return {
+        count: glass.count,
+        earned: glass.droids.filter(d => d.earned).length,
+        crossed: crossed.map(c => c.spec.id),
+        aboard: droidsAboard('k5'),
+      };
+    })()`);
+  assert.strictEqual(res.count, 3, 'window duties were not counted towards the Glazier');
+  assert.strictEqual(res.earned, 1, 'the first Glazier droid did not arrive at its threshold');
+  assert.strictEqual([...res.crossed].join(','), 'glass', 'the wrong droids were announced');
+  assert.strictEqual(res.aboard, 1, 'a drill bonus conjured a droid');
+});
+
+run('droids are never taken away once earned', () => {
+  // The whole reason the hangar replaced a weekly count: a bad week has to
+  // cost you nothing you already had, or it's a streak wearing a hat.
+  const res = ctx(`
+    (() => {
+      load(); state.log = [];
+      const win = DUTIES.find(d => d.spec === 'glass' && d.who.includes('k5'));
+      for (let i = 0; i < 3; i++)
+        state.log.push({ t: weekStart() - 40 * 86400000, crew: 'k5', duty: win.id, pts: 10 });
+      return { aboard: droidsAboard('k5'), thisWeek: weekTotal('k5') };
+    })()`);
+  assert.strictEqual(res.thisWeek, 0, 'the setup leaked into this week');
+  assert.strictEqual(res.aboard, 1, 'a droid earned weeks ago was lost');
+});
+
+run('the v1 rank names are migrated, but a chosen name is kept', () => {
+  const res = ctx(`
+    (() => {
+      const kept = localStorage.getItem(STORE_KEY);
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        v: 1,
+        crewNames: { adult: 'Captain', k9: 'Commander', k5: 'Marnie' },
+        deckNames: { bunkb: "Commander's Quarters", bunkc: "Cadet's Quarters" },
+        duties: {}, log: [], missions: {}, activeCrew: 'k9',
+      }));
+      load();
+      const out = {
+        k9: state.crewNames.k9,
+        k5: state.crewNames.k5,
+        bunkb: state.deckNames.bunkb,
+        v: state.v,
+      };
+      localStorage.setItem(STORE_KEY, kept);
+      load();
+      return out;
+    })()`);
+  assert.strictEqual(res.k9, 'Cadet 1', 'the old Commander was not made a cadet');
+  assert.strictEqual(res.k5, 'Marnie', 'a name the crew chose was overwritten');
+  assert.strictEqual(res.bunkb, "Cadet 1's Quarters", 'the quarters kept the old rank');
+  assert.strictEqual(res.v, 2, 'the save was not marked as migrated');
+});
+
+run('nobody is shown a droid they could never earn', () => {
+  // Sanitation lives entirely in rooms the children can't be sent to. A locked
+  // slot reading "10 more to Sparky" for a droid that can never arrive is an
+  // unmeetable goal wearing a reward's clothes, which is the one thing this
+  // app must not put in front of a child.
+  const res = ctx(`
+    CREW.map(c => ({
+      id: c.id,
+      shown: specsFor(c.id).map(s => s.id),
+      impossible: specsFor(c.id).filter(s =>
+        !DUTIES.some(d => d.spec === s.id && canAccess(c.id, d.deck) && d.who.includes(c.id))
+      ).map(s => s.id),
+      total: droidTotal(c.id),
+    }))`);
+  [...res].forEach((r) => {
+    assert.strictEqual([...r.impossible].length, 0, `${r.id} is shown unreachable: ${[...r.impossible].join(', ')}`);
+    assert.ok([...r.shown].length >= 4, `${r.id} sees only ${[...r.shown].length} specialities`);
+    assert.strictEqual(r.total, [...r.shown].length * 3, `${r.id}: denominator counts hidden droids`);
+  });
+  const kids = [...res].filter((r) => r.id !== 'adult');
+  kids.forEach((r) =>
+    assert.ok(![...r.shown].includes('sanitation'), `${r.id} is offered sanitation droids they cannot reach`)
+  );
 });

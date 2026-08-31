@@ -176,6 +176,7 @@ main {
 }
 .chip.pts { color: var(--cyan); border-color: #24506b; }
 .chip.hazard { color: #05070f; background: var(--amber); border-color: var(--amber); font-weight: 700; }
+.chip.spec { color: #c3b5ff; border-color: #3a3268; }
 
 .actions { display: grid; gap: 10px; margin-top: 16px; }
 .actions .row { display: flex; gap: 10px; }
@@ -267,8 +268,6 @@ main {
 .track-row.done { opacity: 0.5; }
 .track-row.done .tick { color: var(--green); }
 
-body.simple .track-row { min-height: 62px; font-size: 17px; }
-body.simple .track-row .em { font-size: 28px; }
 
 /* ── Accepted mission and sign-off ────────────────────────────────────────── */
 
@@ -413,9 +412,6 @@ body.simple .track-row .em { font-size: 28px; }
 .st.over { color: var(--red); }
 .st.crit { color: var(--red); font-weight: 700; }
 
-body.simple .dutyline { min-height: 68px; }
-body.simple .dutyline .em { font-size: 28px; }
-body.simple .dutyline .t { font-size: 17px; }
 /* Someone else's deck: still visible so the ship reads as shared, but clearly
    not yours to act on. */
 .deck.muted { opacity: 0.42; }
@@ -481,12 +477,26 @@ body.simple .dutyline .t { font-size: 17px; }
 .hrow.head .sc, .hrow.head .tk { color: var(--dim); font-family: inherit; }
 .hrow .wn { text-align: right; }
 
-.hangar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+/* One row per speciality, three slots apiece. A locked slot is dimmed rather
+   than hidden — the shape of the collection is the point of having one.
+   Not `.spec` — that would also catch the `chip spec` on the duty card. */
+.spec-row { margin-top: 14px; }
+.spec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.spec-name { font-size: 14px; font-weight: 600; }
+.spec-hint { font-size: 12px; color: var(--dim); text-align: right; }
+
+.hangar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .hangar div {
-  aspect-ratio: 1;
+  height: 48px;
   display: grid;
   place-items: center;
-  font-size: 20px;
+  font-size: 22px;
   border-radius: 10px;
   background: #0a1120;
   border: 1px solid var(--line);
@@ -592,16 +602,6 @@ body.simple .dutyline .t { font-size: 17px; }
   to   { transform: translateX(-50%) scale(1); opacity: 1; }
 }
 
-/* ── Cadet mode: bigger, wordier things removed ───────────────────────────── */
-
-body.simple .card .icon { font-size: 92px; }
-body.simple .card h2 { font-size: 26px; }
-body.simple .btn { min-height: 66px; font-size: 20px; }
-body.simple .chip.mins,
-body.simple .chip.tier { display: none; }
-body.simple .deck .pct { display: none; }
-body.simple .deck .sub { display: none; }
-body.simple .deck .name { font-size: 17px; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }

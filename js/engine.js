@@ -41,7 +41,7 @@ function seed() {
     duties[d.id] = { last: now - age, skips: 0, snooze: 0 };
   });
   return {
-    v: 1,
+    v: 2,
     crewNames: Object.fromEntries(CREW.map((c) => [c.id, c.name])),
     deckNames: Object.fromEntries(DECKS.map((d) => [d.id, d.name])),
     duties,
@@ -79,6 +79,29 @@ function reconcileRoster() {
   state.deckNames ??= {};
   CREW.forEach((c) => { state.crewNames[c.id] ??= c.name; });
   DECKS.forEach((d) => { state.deckNames[d.id] ??= d.name; });
+  migrateNames();
+}
+
+// v1 called one child Commander and the other Cadet, which put one a rank above
+// the other before either had earned anything. Both are cadets now — but names
+// persist across updates, so an installed copy would otherwise keep the old
+// ones forever. Only a name that is still the untouched v1 default is replaced;
+// anything the crew renamed themselves is theirs and stays.
+const V1_DEFAULTS = {
+  crew: { k9: 'Commander', k5: 'Cadet' },
+  deck: { bunkb: "Commander's Quarters", bunkc: "Cadet's Quarters" },
+};
+
+function migrateNames() {
+  if ((state.v ?? 1) >= 2) return;
+  Object.entries(V1_DEFAULTS.crew).forEach(([id, was]) => {
+    if (state.crewNames[id] === was) state.crewNames[id] = crewById(id).name;
+  });
+  Object.entries(V1_DEFAULTS.deck).forEach(([id, was]) => {
+    if (state.deckNames[id] === was) state.deckNames[id] = deckById[id].name;
+  });
+  state.v = 2;
+  save();
 }
 
 // ── Decay ───────────────────────────────────────────────────────────────────
@@ -187,7 +210,7 @@ function eligible(crewId, exclude = []) {
   );
 }
 
-/** Decks a crew member has any business in — drives the Cadet's Ship tab. */
+/** Decks a crew member has any business in — drives the Ship tab. */
 function decksFor(crewId) {
   return DECKS.filter((k) => canAccess(crewId, k.id));
 }
@@ -351,6 +374,9 @@ function endOfToday() {
  *   due    — nothing done, every duty fully overdue, ship at 0%
  *   clean  — everything just done, ship at 100%
  *   scores — keep the ship as it is, wipe merit and droids back to zero
+ *
+ * Every mode clears the log, and the hangar is counted off the log — so all
+ * four empty it, not just `scores`. The confirm text in ui.js says so.
  */
 function resetShip(mode) {
   const now = Date.now();
@@ -438,8 +464,8 @@ const trackHit = (crewId) => {
 const weekTotal = (crewId) => totalSince(crewId, weekStart());
 const monthTotal = (crewId) => totalSince(crewId, monthStart());
 const lifetime = (crewId) => totalSince(crewId, 0);
-// Counts actual duties, not the synthetic bonus entries — this drives the
-// Cadet's droid count, and a drill bonus shouldn't conjure a free droid.
+// Counts actual duties, not the synthetic bonus entries — a drill bonus is a
+// reward for the jobs, not a job of its own. Feeds the service record.
 const countSince = (crewId, since) =>
   state.log.filter(
     (e) => e.crew === crewId && e.t >= since && !e.track && !e.duty.startsWith('bonus:')
@@ -447,6 +473,72 @@ const countSince = (crewId, since) =>
 
 function crewById(id) {
   return CREW.find((c) => c.id === id);
+}
+
+// ── The hangar ──────────────────────────────────────────────────────────────
+//
+// Droids are earned by getting good at a kind of work, counted over your whole
+// service and never reset. Like history, it's derived from the log rather than
+// stored: the log already says who did what, so there's no separate tally to
+// keep in step and nothing a reset can leave half-wiped.
+//
+// Nothing here is a competition and nothing here expires.
+
+/**
+ * The specialities a crew member can actually work in.
+ *
+ * Sanitation lives entirely in rooms the children can't be sent to, so for them
+ * it isn't rare, it's arithmetically impossible — and a permanently locked row
+ * reading "10 more to Sparky" for a droid that can never arrive is exactly the
+ * unmeetable goal this app refuses to put in front of anyone. A speciality you
+ * can't reach isn't shown, and it isn't counted in your total either.
+ */
+function specsFor(crewId) {
+  return SPECIALITIES.filter((s) =>
+    DUTIES.some((d) => d.spec === s.id && canAccess(crewId, d.deck) && d.who.includes(crewId))
+  );
+}
+
+/** How many duties of one speciality this crew member has done, all time. */
+function specCount(crewId, specId) {
+  return state.log.filter(
+    (e) => e.crew === crewId && !e.track && dutyById[e.duty]?.spec === specId
+  ).length;
+}
+
+/** Every speciality open to them, its droids, and which are aboard. */
+function badgesFor(crewId) {
+  return specsFor(crewId).map((s) => {
+    const count = specCount(crewId, s.id);
+    const droids = s.droids.map((d) => ({ ...d, earned: count >= d.at }));
+    return { ...s, count, droids, next: droids.find((d) => !d.earned) ?? null };
+  });
+}
+
+const droidsAboard = (crewId) =>
+  badgesFor(crewId).reduce((a, s) => a + s.droids.filter((d) => d.earned).length, 0);
+
+/** How many droids exist for this crew member — the hangar's denominator. */
+const droidTotal = (crewId) =>
+  specsFor(crewId).reduce((a, s) => a + s.droids.length, 0);
+
+/** Counts before an award, so what crossed can be announced after it. */
+const badgeSnapshot = (crewId) =>
+  Object.fromEntries(specsFor(crewId).map((s) => [s.id, specCount(crewId, s.id)]));
+
+/**
+ * Droids that arrived between a snapshot and now. A drill can bank three duties
+ * at once, so this returns a list rather than a single crossing.
+ */
+function badgesCrossed(crewId, before) {
+  const out = [];
+  specsFor(crewId).forEach((s) => {
+    const now = specCount(crewId, s.id);
+    s.droids.forEach((d) => {
+      if ((before[s.id] ?? 0) < d.at && now >= d.at) out.push({ spec: s, droid: d });
+    });
+  });
+  return out;
 }
 
 // ── History ─────────────────────────────────────────────────────────────────
@@ -480,7 +572,6 @@ function weekSummary(start) {
       duties: done.filter((e) => !e.duty.startsWith('bonus:')).length,
       track: t ? between(c.id, start, end, { track: t.id }).length : 0,
       hitTarget: merit >= c.target,
-      hitGoal: c.goal ? done.filter((e) => !e.duty.startsWith('bonus:')).length >= c.goal : null,
       hitTrack: t ? between(c.id, start, end, { track: t.id }).length >= t.goal : null,
     };
     total += merit;
@@ -504,6 +595,7 @@ function pastWeeks(n = 8) {
 /** Everything, all time — per person and household. */
 function allTime() {
   const crew = {};
+  const weeks = pastWeeks(520);
   let total = 0;
   CREW.forEach((c) => {
     const done = between(c.id, 0, Infinity);
@@ -518,14 +610,13 @@ function allTime() {
     total += merit;
   });
   // Weeks won needs the week-by-week view, so count it once over all of them.
-  pastWeeks(520).forEach((w) =>
+  // One measure for everybody now: your own merit against your own target.
+  weeks.forEach((w) =>
     CREW.forEach((c) => {
-      const r = w.crew[c.id];
-      const won = c.goal ? r.hitGoal : r.hitTarget;
-      if (won) crew[c.id].weeksWon++;
+      if (w.crew[c.id].hitTarget) crew[c.id].weeksWon++;
     })
   );
-  return { crew, total, weeks: pastWeeks(520).length };
+  return { crew, total, weeks: weeks.length };
 }
 
 /** Rank is measured in weeks-of-your-own-target, so everyone climbs alike. */

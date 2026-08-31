@@ -8,6 +8,28 @@ measured one.
 Live at **https://dreariment-dev.github.io/ship-shape/** — install via Chrome's
 *Add to Home Screen*. Public repo because free GitHub Pages requires it.
 
+## Reviewed 31 Aug 2026
+
+The change that made both children cadets and turned the hangar into a
+permanent droid collection **has been through a code review** and the findings
+are fixed. Worth keeping, because two of them are the kind that come back:
+
+- **Droids die with the log.** All four resets clear `state.log`, and the
+  hangar is counted off it — so every reset empties the hangar, not just
+  `scores`. The confirm text says so now. If anything ever earns a droid from a
+  source other than the log, this stops being true and the wording is a lie.
+- **A speciality you can't reach isn't shown** (`specsFor` in `engine.js`).
+  Sanitation is entirely in rooms the children can't be sent to, so for them it
+  wasn't rare, it was impossible — and a locked slot reading "10 more to
+  Sparky" is an unmeetable goal wearing a reward's clothes. The hangar's
+  denominator is per-crew for the same reason. A test pins it.
+- `.spec` as a CSS class was also matching the new duty-card chip; the hangar
+  block is `.spec-row`.
+
+**Still not verified: the UI has never been seen rendering** — that hasn't
+changed, and the hangar layout is new and unseen. It's the first thing to check
+on a device.
+
 ## The constraint that shaped everything
 
 One of the two children has ADHD. That ruled out most of what chore-gamification
@@ -15,7 +37,9 @@ normally does, and the exclusions matter more than the features:
 
 - **No streaks.** The inevitable broken streak punishes exactly the person the
   app exists to help. A test fails if a goal is set so high it can only be met
-  by never missing a day — a streak in disguise.
+  by never missing a day — a streak in disguise. The hangar is the answer to
+  wanting the *pull* of a streak: a collection only grows, so a bad week costs
+  you nothing you already had. A test pins that droids are never taken back.
 - **No overdue list, no red.** Rooms *decay* instead, and status wording
   describes the kit rather than the person: holding, due now, degrading,
   failing, critical. "Failing" is a thing to go and fix; "you're late" is a
@@ -70,10 +94,24 @@ sign-off queue has one shape to render and there's no second code path. Adults
 complete their own directly. Handing a mission back costs nothing — abandoning
 isn't ducking, and only ducking should raise the price.
 
-**Personal tracks** are a second, parallel economy: the Cadet's Night Watch (own
-bed, asleep by half eight) and the Commander's Research (homework, twenty
-minutes' reading). They earn no merit and no droids, carry no weight in deck
-integrity, and never enter the draw — four nightly habits would swamp it.
+**Both children are cadets on identical mechanics** — same merit economy, same
+rank ladder, same hangar, one measure of a won week. What differs is only the
+target (200 against 150), because they're balanced on real work and rank is a
+multiple of *your own* target, so equal footing isn't the same as equal numbers.
+There is no simple mode any more: the app is driven on one adult's phone with a
+child beside them, so the reading-age branch had nothing left to do.
+
+**Personal tracks** are a second, parallel economy: the younger child's Night
+Watch (own bed, asleep by half eight) and the older one's Research (homework,
+twenty minutes' reading). They earn no merit and no droids, carry no weight in
+deck integrity, and never enter the draw — four nightly habits would swamp it.
+
+**Droids are specialist badges**, earned for getting good at a *kind* of work
+rather than for volume: three per speciality, seven specialities — fewer if you
+can't reach them all — counted over your whole service and never reset. Every duty carries a `spec`, resolved once
+from `SPECIALITIES` by name pattern — first match wins, so the order of that
+list is load-bearing. The counts come off the log, like history, so there's no
+tally to keep in step and nothing a reset can half-wipe.
 
 **Weeks turn over Friday 07:00**, because that's when the scores are read and
 the treat is decided. Thursday evening counts toward the week being judged;
@@ -82,9 +120,8 @@ after the turn starts the next one.
 **History is derived from the log, never snapshotted.** Every entry carries a
 timestamp, so there's nothing to archive, no rollover job that can be missed
 while the app is shut, and no stored figure that can drift from the record it
-summarises. A won week is judged by whatever that person actually chases —
-droids for the Cadet, merit for everyone else — so history can't disagree with
-the weekly panel.
+summarises. A won week is one measure for everybody — your own merit against
+your own target — so history can't disagree with the weekly panel.
 
 ## Numbers, and why they are what they are
 
@@ -97,10 +134,11 @@ their target* settles near 45%, not 100. Green originally started at 70%, which
 painted a well-run house red forever. **Raise these only if you also raise the
 targets.**
 
-**The two children are balanced on real work, not merit.** Commander 74
-min/week against the Cadet's 56. That comparison is the whole reason personal
-tracks exist: when bedtime paid merit, the Cadet could win a week on *twenty*
-minutes of actual cleaning against the Commander's seventy-seven. A test fails
+**The two children are balanced on real work, not merit.** The nine-year-old's
+74 min/week against the five-year-old's 56. That comparison is the whole reason
+personal tracks exist: when bedtime paid merit, the younger child could win a
+week on *twenty* minutes of actual cleaning against the older one's
+seventy-seven. A test fails
 if the ratio drifts past 1.6×. **Merit is not a workload measure — bedtime pays
 well and isn't cleaning.** Check minutes before concluding anyone is
 under-loaded; that error was made twice.
@@ -110,9 +148,21 @@ fifth of an adult climbs at the same rate. Nobody is ranked against anyone else.
 There is no leaderboard and adding one would be a mistake: the adult wins every
 week by construction.
 
-**The hangar is the Cadet's weekly goal made visible** — one slot per droid
-needed, filling and emptying weekly. It used to count lifetime completions,
-filled permanently inside a fortnight, and stopped being a reward.
+**Droid thresholds are set against theoretical full upkeep**, which is every
+duty done exactly on cadence and which nobody actually reaches — so halve the
+pace in your head. At that ceiling the first droid of a speciality lands in one
+to two weeks for a child and the third in ten to thirteen, meaning the top of a
+speciality is realistically half a year of use. Two earlier shapes were wrong
+in opposite directions and are worth not repeating: a lifetime *count* filled
+up for good inside a fortnight and stopped being a reward, and a weekly count
+that emptied every Friday was a streak with the serial numbers filed off.
+
+**Sanitation is hidden from the children and the Galley is nearly out of
+reach**, by construction — those duties live in rooms they can't be sent to. A
+speciality with nothing you could ever be dealt isn't shown at all (`specsFor`),
+because impossible and merely slow are different things; the Galley *is* merely
+slow for the five-year-old and stays. The test demands everyone can reach *four*
+first droids inside four weeks, so no hangar stays empty.
 
 **Make the bed is deliberately not folded into "tidy your quarters".** It's one
 concrete action with a visible result, which vague tidying isn't, and that
@@ -124,13 +174,20 @@ the stair spindles stay adults-only — same name, different work.
 
 ## Verified, and not
 
-`node tests/engine.test.js` — 55 tests, no framework, no dependencies. They pin
+`node tests/engine.test.js` — 62 tests, no framework, no dependencies. They pin
 the safety rules, the access rules, first refusal *and* its backstop, that
 nothing pays out before sign-off, that merit lands on whoever did the work, that
 neglect raises pay and stays capped, the Friday week boundary in all four cases
 around the turn, that history excludes the current week, that no single duty can
 carry a week, that every target is reachable, and that renames survive all four
 resets. Run them after touching `data.js`; several catch a mis-tuned target.
+
+The hangar adds seven: that every duty maps to exactly one speciality and no track
+duty maps to any, that thresholds climb, that everyone can reach four first
+droids inside four weeks, that droids come off the log and a drill bonus earns
+none, that **a droid earned weeks ago survives a bad week**, and that the v1
+name migration renames the old defaults without touching a name the crew chose,
+and that **nobody is shown a droid they could never earn**.
 
 `freshness()` is derived from elapsed time, so a just-completed duty reads
 0.99999994 rather than 1. Assertions use a `near()` helper — **don't reintroduce
@@ -176,16 +233,18 @@ independent agents flag separately is almost certainly real.
 
 ## Open
 
-- **Targets are guesses.** 500 / 200 / 150 merit, 16 droids, 10 moons, 8 logs.
-  Tune after a real week — that data doesn't exist yet.
-- **Deck names are still generic.** `Crew Quarters` → the children's actual
-  names, via ⚙ in the app. Flagged repeatedly as mattering more to them than any
-  mechanic; still not done.
+- **Targets are guesses.** 500 / 200 / 150 merit, 10 moons, 8 logs, and every
+  droid threshold in `SPECIALITIES`. Tune after a real week — that data still
+  doesn't exist.
+- **Deck names are still placeholders.** `Cadet 1's Quarters` → the children's
+  actual names, via ⚙ in the app. The defaults are deliberately plain because
+  the repo is public; the renaming is a two-minute job on the device and has
+  been flagged repeatedly as mattering more to them than any mechanic.
 - **Should the five-year-old be doing windows?** They can be, by request. Glass
   cleaner and a five-year-old is a parenting call, not a code one.
 - **"Sort out one toy box" is 20 minutes**, the largest single ask in the
-  Cadet's pool. Monthly, so it surfaces rarely, but it may want to be
-  Commander-and-adults only.
+  younger child's pool. Monthly, so it surfaces rarely, but it may want to be
+  older-child-and-adults only.
 - **Gaps against the standard set in the adults-only rooms**: Hydro Bay has no
   dust or skirting, Aux Sanitation no dust or windows, the Turbolift no windows
   or tidy.

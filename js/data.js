@@ -12,18 +12,25 @@ const TIERS = {
   seasonal: { days: 90, pts: 100, label: 'Drydock' },
 };
 
-// target is merit per week and drives rank and the crew standing. `goal` is
-// what a simple-mode crew member actually sees — a count of droids, because a
-// five-year-old can count droids and cannot read a points total.
+// target is merit per week, and drives rank and the crew standing.
+//
+// Both children are cadets on identical mechanics: same merit economy, same
+// rank ladder, same hangar. What differs is the target, because they are
+// balanced on real work — 74 min/week against 56 — and rank is a multiple of
+// your own target, so equal footing is not the same as equal numbers.
+//
+// The names are placeholders, deliberately plain: rename them to the
+// children's own via ⚙ on the device. Nothing personal belongs in a public
+// repo, and the digits are labels, not rank.
 //
 // Both children also have a personal track (see TRACKS) that is scored
 // entirely separately — bedtime and homework are not cleaning, and letting
 // them pay merit meant the five-year-old could win a week doing twenty
 // minutes of actual work against the nine-year-old's seventy-seven.
 const CREW = [
-  { id: 'adult', name: 'Captain',   emoji: '🧑‍🚀', target: 500, mode: 'full'  },
-  { id: 'k9',    name: 'Commander', emoji: '🫡',   target: 200, mode: 'full'  },
-  { id: 'k5',    name: 'Cadet',     emoji: '👾',   target: 150, mode: 'simple', goal: 16 },
+  { id: 'adult', name: 'Captain', emoji: '🧑‍🚀', target: 500 },
+  { id: 'k9',    name: 'Cadet 1', emoji: '🫡',   target: 200 },
+  { id: 'k5',    name: 'Cadet 2', emoji: '👾',   target: 150 },
 ];
 
 // Rank thresholds are multiples of a crew member's own weekly target, so the
@@ -71,8 +78,8 @@ const DECKS = [
   // owners: whose patch this is. Anything an owner is capable of doing here is
   // theirs first — see FIRST_REFUSAL below. A deck can have more than one.
   { id: 'bunka',    name: "Captain's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['adult'] },
-  { id: 'bunkb',    name: "Commander's Quarters",  sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['k9'] },
-  { id: 'bunkc',    name: "Cadet's Quarters",      sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['k5'] },
+  { id: 'bunkb',    name: "Cadet 1's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['k9'] },
+  { id: 'bunkc',    name: "Cadet 2's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['k5'] },
   { id: 'hydro',    name: 'Hydro Bay',             sub: 'Bathroom',       zone: 'upper',   emoji: '🚿' },
   { id: 'turbo',    name: 'Turbolift Shaft',       sub: 'Stairs',         zone: 'transit', emoji: '🪜' },
 ];
@@ -222,19 +229,93 @@ const DUTIES = [
   { deck: 'turbo', name: 'Dust the stairwell light',  icon: '💡', tier: 'seasonal', mins: 15, who: ADULT },
 ];
 
-// Droids the Cadet rescues — one per completed duty, filling the hangar bay.
-const DROIDS = [
-  ['🤖', 'Bolt'],    ['🛸', 'Pip'],     ['🚀', 'Comet'],   ['🛰️', 'Echo'],
-  ['👾', 'Blip'],    ['🪐', 'Ringo'],   ['⭐', 'Twinkle'], ['🌟', 'Flare'],
-  ['💫', 'Zip'],     ['☄️', 'Whizz'],   ['🔭', 'Peek'],    ['🦾', 'Clank'],
-  ['🔧', 'Spanner'], ['⚙️', 'Cog'],     ['🔩', 'Bolty'],   ['📡', 'Dish'],
-  ['🛠️', 'Fixit'],   ['🔋', 'Sparky'],  ['💡', 'Glow'],    ['🎛️', 'Dials'],
-  ['🕹️', 'Joy'],     ['📻', 'Crackle'], ['🔌', 'Plug'],    ['🧲', 'Snap'],
+// Specialities: the kind of work a duty is, rather than the room it's in.
+//
+// Droids are earned by getting good at something and they are kept for good.
+// That is the whole design constraint restated: a collection can only ever
+// grow, so a bad week costs you nothing you already had. A missed window is a
+// droid you haven't met yet, never one that flew away — which is exactly what
+// a streak would have done to the child this app was built for.
+//
+// Counts are lifetime and measured against yourself, so nobody is competing
+// with a sibling or with an adult who can reach twice as many rooms.
+//
+// `match` is tested against the lowercased duty name and the FIRST hit wins,
+// so the order below is load-bearing: `Paper and clutter sweep` is tidying,
+// not floors, and `Skirting and behind the loo` is sanitation, not trim.
+const SPECIALITIES = [
+  {
+    id: 'glass', name: 'Glazier', icon: '🪟',
+    match: /window|mirror/,
+    droids: [
+      { at: 3,  emoji: '⭐', name: 'Twinkle' },
+      { at: 10, emoji: '🌟', name: 'Flare' },
+      { at: 25, emoji: '💫', name: 'Zip' },
+    ],
+  },
+  {
+    id: 'floors', name: 'Deck Hand', icon: '🌀',
+    match: /hoover|mop the|sweep the/,
+    droids: [
+      { at: 5,  emoji: '🛸', name: 'Pip' },
+      { at: 20, emoji: '🚀', name: 'Comet' },
+      { at: 60, emoji: '☄️', name: 'Whizz' },
+    ],
+  },
+  {
+    id: 'sanitation', name: 'Sanitation', icon: '🚽',
+    match: /toilet|sink and taps|loo|bath|shower|grout|bin|towels/,
+    droids: [
+      { at: 10,  emoji: '🔋', name: 'Sparky' },
+      { at: 40,  emoji: '🧲', name: 'Snap' },
+      { at: 120, emoji: '🛠️', name: 'Fixit' },
+    ],
+  },
+  {
+    id: 'galley', name: 'Galley Hand', icon: '🍳',
+    match: /worktop|hob|oven|microwave|fridge|kettle|freezer|cupboard/,
+    droids: [
+      { at: 3,  emoji: '🔌', name: 'Plug' },
+      { at: 10, emoji: '💡', name: 'Glow' },
+      { at: 25, emoji: '📻', name: 'Crackle' },
+    ],
+  },
+  {
+    id: 'trim', name: 'Finisher', icon: '📏',
+    match: /skirting|banister|spindle|doors and light/,
+    droids: [
+      { at: 2,  emoji: '🔧', name: 'Spanner' },
+      { at: 6,  emoji: '⚙️', name: 'Cog' },
+      { at: 15, emoji: '🔩', name: 'Bolty' },
+    ],
+  },
+  {
+    id: 'dust', name: 'Duster', icon: '🪶',
+    match: /dust|high shelves|screen/,
+    droids: [
+      { at: 4,  emoji: '👾', name: 'Blip' },
+      { at: 15, emoji: '🛰️', name: 'Echo' },
+      { at: 45, emoji: '🔭', name: 'Peek' },
+    ],
+  },
+  {
+    id: 'tidy', name: 'Quartermaster', icon: '📦',
+    match: /tidy|clear|make the bed|under the bed|toy box|paper and clutter|cull|bedding|wardrobe|file or shred|restock/,
+    droids: [
+      { at: 20,  emoji: '🤖', name: 'Bolt' },
+      { at: 90,  emoji: '🦾', name: 'Clank' },
+      { at: 300, emoji: '🎛️', name: 'Dials' },
+    ],
+  },
 ];
 
-// Give every duty a stable id so state survives roster edits that only reorder.
+// Give every duty a stable id so state survives roster edits that only reorder,
+// and resolve its speciality once — the hangar counts these off the log, so a
+// duty that matches nothing can never be worked towards a droid. The test suite
+// fails if one slips through unmatched.
 DUTIES.forEach((d) => {
   d.id = `${d.deck}:${d.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   d.pts = d.pts ?? TIERS[d.tier].pts;
   d.days = TIERS[d.tier].days;
+  d.spec = d.track ? null : SPECIALITIES.find((s) => s.match.test(d.name.toLowerCase()))?.id ?? null;
 });

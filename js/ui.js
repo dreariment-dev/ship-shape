@@ -16,7 +16,6 @@ let sprint = null;
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const crew = () => crewById(state.activeCrew);
-const isSimple = () => crew().mode === 'simple';
 const deckName = (id) => state.deckNames[id] || deckById[id].name;
 const crewName = (id) => state.crewNames[id] || crewById(id).name;
 
@@ -30,6 +29,20 @@ function band(pct) {
 }
 
 const STATUS = { good: 'All systems nominal', warn: 'Needs attention', bad: 'Critical' };
+
+/**
+ * What to say when work banks. A droid arriving is bigger news than the merit,
+ * so it leads — but they land in the same breath rather than as two toasts
+ * fighting over the same corner of the screen.
+ */
+function bankToast(crewId, before, merit) {
+  const got = badgesCrossed(crewId, before);
+  const who = crewId === state.activeCrew ? '' : `${crewName(crewId)}: `;
+  if (!got.length) return toast(`${who}+${merit} merit banked`);
+  const [{ spec, droid }] = got;
+  const more = got.length > 1 ? ` (+${got.length - 1} more)` : '';
+  toast(`${who}${droid.emoji} ${droid.name} joined the hangar — ${spec.name}!${more} +${merit} merit`, 3400);
+}
 
 function toast(msg, ms = 2200) {
   const t = $('#toast');
@@ -68,7 +81,6 @@ function renderHud() {
       save();
       card = null;
       seenThisSession = [];
-      document.body.classList.toggle('simple', crewById(c.id).mode === 'simple');
       renderAll();
     };
     $('#crew-switch').append(b);
@@ -96,10 +108,8 @@ function renderMission(m) {
   const c = el(`
     <div class="card onmission">
       ${body}
-      <div class="meta">${
-        isSimple()
-          ? `<span class="chip pts">🤖 ${m.duties.length} droid${m.duties.length > 1 ? 's' : ''} waiting</span>`
-          : `<span class="chip pts">${v.total} merit</span>${v.bonus ? `<span class="chip hazard">+${v.bonus} drill bonus</span>` : ''}`
+      <div class="meta"><span class="chip pts">${v.total} merit</span>${
+        v.bonus ? `<span class="chip hazard">+${v.bonus} drill bonus</span>` : ''
       }</div>
       <div class="actions">
         ${waiting
@@ -112,8 +122,9 @@ function renderMission(m) {
 
   if (!waiting) {
     c.querySelector('#done').onclick = () => {
+      const before = badgeSnapshot(state.activeCrew);
       const got = signOff(state.activeCrew);
-      toast(`+${got} merit banked`);
+      bankToast(state.activeCrew, before, got);
       card = null;
       renderAll();
     };
@@ -154,8 +165,9 @@ function renderSignOff() {
         <button class="no">✕</button>
       </div>`);
     row.querySelector('.ok').onclick = () => {
+      const before = badgeSnapshot(p.crewId);
       const pts = signOff(p.crewId);
-      toast(`✅ ${crewName(p.crewId)} earned ${pts} merit`);
+      bankToast(p.crewId, before, pts);
       renderAll();
     };
     row.querySelector('.no').onclick = () => {
@@ -196,15 +208,14 @@ function renderCard() {
   const pts = value(card.id);
   const over = dueness(card.id);
 
-  const chips = isSimple()
-    ? `<span class="chip pts">🤖 Rescue a droid</span>`
-    : [
-        `<span class="chip pts">${pts} merit</span>`,
-        `<span class="chip mins">~${card.mins} min</span>`,
-        `<span class="chip tier">${TIERS[card.tier].label}</span>`,
-        payChip(card.id),
-        over >= 1.5 ? `<span class="chip">${dutyState(card.id).text}</span>` : '',
-      ].join('');
+  const chips = [
+    `<span class="chip pts">${pts} merit</span>`,
+    `<span class="chip mins">~${card.mins} min</span>`,
+    `<span class="chip tier">${TIERS[card.tier].label}</span>`,
+    specChip(card),
+    payChip(card.id),
+    over >= 1.5 ? `<span class="chip">${dutyState(card.id).text}</span>` : '',
+  ].join('');
 
   const c = el(`
     <div class="card">
@@ -213,9 +224,9 @@ function renderCard() {
       <h2>${card.name}</h2>
       <div class="meta">${chips}</div>
       <div class="actions">
-        <button class="btn" id="do">${isSimple() ? '👍 I\'ll do it!' : 'Accept mission'}</button>
+        <button class="btn" id="do">Accept mission</button>
         <div class="row">
-          <button class="ghost" id="swap">🔄 ${isSimple() ? 'Another one' : 'Swap'}</button>
+          <button class="ghost" id="swap">🔄 Swap</button>
           <button class="ghost" id="later">🌙 Not today</button>
         </div>
       </div>
@@ -293,20 +304,6 @@ function renderTrack() {
   host.append(box);
 }
 
-function doComplete(duty, bonus = 1) {
-  const pts = complete(duty.id, state.activeCrew, bonus);
-  if (isSimple()) {
-    const n = countSince(state.activeCrew, 0);
-    const [em, nm] = DROIDS[(n - 1) % DROIDS.length];
-    toast(`${em} You rescued ${nm}!`, 2600);
-  } else {
-    toast(`+${pts} merit — ${deckName(duty.deck)} restored`);
-  }
-  card = null;
-  seenThisSession = [];
-  renderAll();
-}
-
 // ── Ship view ───────────────────────────────────────────────────────────────
 
 function deckRow(d, muted) {
@@ -339,6 +336,21 @@ function dutyState(id) {
   if (due < 2.5) return { cls: 'over', text: 'Degrading' };
   if (due < 4) return { cls: 'over', text: 'Failing' };
   return { cls: 'crit', text: 'Critical' };
+}
+
+/**
+ * What this card counts towards. A collection only pulls if you can see the
+ * next droid coming — otherwise one turns up every few weeks as a surprise and
+ * none of the jobs in between feel connected to it.
+ */
+function specChip(duty) {
+  const s = SPECIALITIES.find((x) => x.id === duty.spec);
+  if (!s) return '';
+  const n = specCount(state.activeCrew, s.id);
+  const next = s.droids.find((d) => n < d.at);
+  return next
+    ? `<span class="chip spec">${s.icon} ${next.at - n} more to ${next.emoji} ${next.name}</span>`
+    : `<span class="chip spec">${s.icon} ${s.name} complete</span>`;
 }
 
 /** The pay multiplier as a chip, saying which penalty is driving it. */
@@ -384,7 +396,7 @@ function openDeck(deckId) {
         <div class="body">
           <div class="t">${d.name}</div>
           <div class="s"><span class="st ${st.cls}">${st.text}</span>${
-            actionable && !isSimple() ? ` · ${value(d.id)} merit` : ''
+            actionable ? ` · ${value(d.id)} merit` : ''
           }${mult > 1.01 && actionable ? ` · ⚠ ×${+mult.toFixed(2)}` : ''}${why ? ` · ${why}` : ''}</div>
         </div>
         ${actionable ? `<button class="do"${busy ? ' disabled' : ''}>Take</button>` : ''}
@@ -407,7 +419,7 @@ function openDeck(deckId) {
           ? `<h3 class="seg">Yours to do here</h3>${mine.map((d) => line(d, true)).join('')}`
           : `<div class="empty" style="padding:24px 8px"><span class="big">✅</span>Nothing here for you right now.</div>`}
 
-        ${theirs.length && !isSimple()
+        ${theirs.length
           ? `<h3 class="seg">Not yours right now</h3>${theirs.map((d) => line(d, false)).join('')}`
           : ''}
 
@@ -462,27 +474,24 @@ const fmtDate = (ts) =>
 
 /**
  * Past weeks, so a good run is visible rather than evaporating every Friday.
- * A won week is measured by whatever that crew member is actually chasing —
- * droids for the Cadet, merit for everyone else.
+ * One measure for everybody: your own merit against your own target, which is
+ * scaled to what you can actually reach.
  */
 function historyPanel(crewId) {
   const weeks = pastWeeks(8);
   const all = allTime();
   const me = all.crew[crewId];
-  const c = crewById(crewId);
   const t = trackFor(crewId);
 
   const rows = weeks.length
     ? weeks
         .map((w) => {
           const r = w.crew[crewId];
-          const won = c.goal ? r.hitGoal : r.hitTarget;
-          const score = c.goal ? `${r.duties} droids` : `${r.merit}`;
           return `<div class="hrow">
             <span class="wk">${fmtDate(w.start)}</span>
-            <span class="sc">${score}</span>
+            <span class="sc">${r.merit}</span>
             ${t ? `<span class="tk">${t.icon} ${r.track}</span>` : '<span class="tk"></span>'}
-            <span class="wn">${won ? '🏅' : '—'}</span>
+            <span class="wn">${r.hitTarget ? '🏅' : '—'}</span>
           </div>`;
         })
         .join('')
@@ -494,7 +503,7 @@ function historyPanel(crewId) {
       <div class="hgrid">
         <div class="hrow head">
           <span class="wk">Week from</span>
-          <span class="sc">${c.goal ? 'Droids' : 'Merit'}</span>
+          <span class="sc">Merit</span>
           <span class="tk">${t ? t.unit : ''}</span>
           <span class="wn">Won</span>
         </div>
@@ -548,6 +557,46 @@ function trackPanel(crewId) {
     </div>`);
 }
 
+/**
+ * The hangar bay: droids earned by getting good at a kind of work, kept for
+ * good. Locked slots say what would bring that droid in rather than hiding it,
+ * because a collection you can't see the shape of isn't one worth filling.
+ */
+function hangarPanel(crewId) {
+  const specs = badgesFor(crewId);
+  const aboard = droidsAboard(crewId);
+
+  const rows = specs
+    .map((s) => {
+      const slots = s.droids
+        .map(
+          (d) =>
+            `<div class="${d.earned ? '' : 'locked'}" title="${d.name} · ${d.at} ${s.name.toLowerCase()} duties">${d.emoji}</div>`
+        )
+        .join('');
+      const hint = s.next
+        ? `${s.count} / ${s.next.at} — ${s.next.at - s.count} more to ${s.next.name}`
+        : `${s.count} done · all droids aboard`;
+      return `
+        <div class="spec-row">
+          <div class="spec-head">
+            <span class="spec-name">${s.icon} ${s.name}</span>
+            <span class="spec-hint">${hint}</span>
+          </div>
+          <div class="hangar">${slots}</div>
+        </div>`;
+    })
+    .join('');
+
+  return el(`
+    <div class="panel">
+      <h3>Hangar bay</h3>
+      <div class="big-num">${aboard} <span style="font-size:16px;color:var(--dim)">/ ${droidTotal(crewId)}</span></div>
+      <div class="sub-num">droids aboard — earned for good, never lost</div>
+      ${rows}
+    </div>`);
+}
+
 /** The decks you're answerable for — responsibility you can see is responsibility. */
 function quartersPanel(crewId) {
   const mine = DECKS.filter((k) => k.owners?.includes(crewId));
@@ -579,55 +628,20 @@ function renderCrew() {
   const target = crew().target;
   const pctToTarget = Math.min(1, week / target);
 
-  if (isSimple()) {
-    const done = countSince(id, weekStart());
-    const goal = crew().goal;
-    wrap.append(el(`
-      <div class="panel">
-        <h3>This week</h3>
-        <div class="big-num">${done} / ${goal}</div>
-        <div class="sub-num">droids rescued</div>
-        <div class="bar ${band(done / goal)}"><span style="width:${Math.min(100, (done / goal) * 100)}%"></span></div>
-        ${done >= goal ? '<div class="hit">🏅 Mission complete!</div>' : ''}
-      </div>`));
-
-    const tp = trackPanel(id);
-    if (tp) wrap.append(tp);
-
-    const q = quartersPanel(id);
-    if (q) wrap.append(q);
-
-    // The hangar IS the weekly goal made visible — one slot per droid needed,
-    // so filling it by Sunday is the whole instruction. It empties each week;
-    // the old lifetime version filled up for good inside a fortnight and
-    // stopped being a reward at all.
-    const slots = DROIDS.slice(0, goal);
-    const crews = Math.floor(countSince(id, 0) / goal);
-    wrap.append(el(`
-      <div class="panel">
-        <h3>Hangar bay</h3>
-        <div class="hangar">
-          ${slots.map(([em, nm], i) => `<div class="${i < done ? '' : 'locked'}" title="${nm}">${em}</div>`).join('')}
-        </div>
-        <div class="sub-num">${Math.min(done, goal)} of ${goal} aboard this week${crews ? ` · ${crews} crew${crews > 1 ? 's' : ''} rescued so far` : ''}</div>
-      </div>`));
-
-    wrap.append(historyPanel(id));
-    return;
-  }
-
   const r = rankOf(id);
   wrap.append(el(`
     <div class="panel">
       <h3>Weekly mission</h3>
       <div class="big-num">${week} <span style="font-size:16px;color:var(--dim)">/ ${target}</span></div>
-      <div class="sub-num">merit earned since Monday</div>
+      <div class="sub-num">merit earned since Friday morning</div>
       <div class="bar ${band(pctToTarget)}"><span style="width:${pctToTarget * 100}%"></span></div>
       ${targetHit(id) ? '<div class="hit">🏅 Target met — award earned</div>' : ''}
     </div>`));
 
   const tp = trackPanel(id);
   if (tp) wrap.append(tp);
+
+  wrap.append(hangarPanel(id));
 
   const q = quartersPanel(id);
   if (q) wrap.append(q);
@@ -673,7 +687,13 @@ function renderCrew() {
 function startSprint() {
   const tasks = drawSprint(state.activeCrew, 3);
   if (!tasks.length) return toast('Nothing to drill on — ship is clean.');
-  sprint = { tasks, done: new Set(), endsAt: Date.now() + 15 * 60 * 1000, crew: state.activeCrew };
+  // An adult's drill ticks bank straight away rather than going through
+  // sign-off, so this is the one path that has to remember its own starting
+  // counts if a droid crossing mid-drill is ever to be announced.
+  sprint = {
+    tasks, done: new Set(), endsAt: Date.now() + 15 * 60 * 1000,
+    crew: state.activeCrew, badgesAt: badgeSnapshot(state.activeCrew),
+  };
   $('#sprint').classList.remove('hidden');
   renderSprint();
   sprint.timer = setInterval(tickSprint, 500);
@@ -702,7 +722,7 @@ function renderSprint() {
         <span class="em">${t.icon}</span>
         <div class="body">
           <div class="t">${t.name}</div>
-          <div class="d">${deckName(t.deck)}${isSimple() ? '' : ` · ${value(t.id)} merit`}</div>
+          <div class="d">${deckName(t.deck)} · ${value(t.id)} merit</div>
         </div>
         <button aria-label="Mark done">${done ? '✓' : '○'}</button>
       </div>`);
@@ -728,8 +748,18 @@ function finishSprint() {
   const bonus = Math.round(earned * 0.5);
   state.log.push({ t: Date.now(), crew: sprint.crew, duty: 'bonus:redalert', pts: bonus });
   save();
+  const { crew: who, badgesAt } = sprint;
   endSprint();
-  if (full) toast(`🎉 Drill cleared! +${bonus} bonus merit`, 3200);
+  // A drill can bring in more than one droid at once, which is the case
+  // badgesCrossed returns a list for.
+  const got = badgesCrossed(who, badgesAt);
+  if (got.length) {
+    const [{ spec, droid }] = got;
+    const more = got.length > 1 ? ` (+${got.length - 1} more)` : '';
+    toast(`${droid.emoji} ${droid.name} joined the hangar — ${spec.name}!${more}`, 3400);
+  } else if (full) {
+    toast(`🎉 Drill cleared! +${bonus} bonus merit`, 3200);
+  }
 }
 
 /**
@@ -757,24 +787,24 @@ const RESETS = [
     id: 'due',
     icon: '🧨',
     label: 'Nothing done',
-    hint: 'Every duty overdue, ship at 0% — good for having a play',
-    confirm: 'Every duty is marked undone and all merit is wiped.',
+    hint: 'Every duty overdue, ship at 0% — wipes merit and droids too',
+    confirm: 'Every duty is marked undone. All merit is wiped, and because the hangar is counted off the log, every droid earned goes with it.',
     done: '🧨 Nothing done. Everything is on the table.',
   },
   {
     id: 'fresh',
     icon: '🚀',
     label: 'New voyage',
-    hint: 'Duties staggered as they are on a fresh install',
-    confirm: 'The ship goes back to how it looked on day one and all merit is wiped.',
+    hint: 'Duties staggered as on a fresh install — wipes merit and droids too',
+    confirm: 'The ship goes back to how it looked on day one. All merit is wiped, and every droid earned goes with it.',
     done: '🚀 New voyage. Good luck out there.',
   },
   {
     id: 'clean',
     icon: '✨',
     label: 'Everything done',
-    hint: 'Whole ship spotless at 100%',
-    confirm: 'Every duty is marked just-done and all merit is wiped.',
+    hint: 'Whole ship spotless at 100% — wipes merit and droids too',
+    confirm: 'Every duty is marked just-done. All merit is wiped, and every droid earned goes with it.',
     done: '✨ Spotless. It will not last.',
   },
   {
@@ -782,7 +812,7 @@ const RESETS = [
     icon: '🎖️',
     label: 'Wipe merit only',
     hint: 'Leaves the ship as it is, resets scores and droids to zero',
-    confirm: 'All merit, ranks and droids go to zero. The ship itself is untouched.',
+    confirm: 'All merit, ranks and droids go to zero — the hangar empties completely. The ship itself is untouched.',
     done: '🎖️ Merit wiped. The ship is as you left it.',
   },
 ];
@@ -869,7 +899,6 @@ function switchView(next) {
 
 function init() {
   load();
-  document.body.classList.toggle('simple', isSimple());
 
   document.querySelectorAll('.tabs button').forEach((b) => {
     b.onclick = () => switchView(b.dataset.view);
