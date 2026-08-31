@@ -1,7 +1,7 @@
 # Ship Shape — handoff
 
 Gamified cleaning for a household of four, themed as keeping a starship running.
-Built 29–30 Aug 2026 in one session, seventeen releases. **Nobody has used it
+Built 29–30 Aug 2026 in one session; eighteen releases. **Nobody has used it
 for a real week yet**, so every number below is a considered guess, not a
 measured one.
 
@@ -259,7 +259,7 @@ independent agents flag separately is almost certainly real.
   old handset and editable without tooling. ~2,400 lines all in.
 - **Bump `CACHE` in `sw.js` on every release** or installed phones keep the old
   files. The app reloads itself once when the new worker takes over, so nobody
-  ever reinstalls. Currently `shipshape-v17`.
+  ever reinstalls. Currently `shipshape-v18`.
 - `tools/build-roster.js` regenerates the browsable duty reference from
   `data.js`, reading the crew and roster live so it can't drift. Published at
   https://claude.ai/code/artifact/f90a70c4-95a8-465d-a12f-941c8a360bc2
