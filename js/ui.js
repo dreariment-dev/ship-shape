@@ -89,9 +89,88 @@ function renderHud() {
 
 // ── Duty card ───────────────────────────────────────────────────────────────
 
+/**
+ * A mission of several jobs, ticked off one at a time. An adult's tick banks
+ * there and then; a child's is a claim their adult signs off, which is the same
+ * rule the drill runs on. Whatever is left when they stop can be handed back
+ * for nothing — taking three and doing two must never be worse than taking one.
+ */
+function renderMissionList(m) {
+  const slot = $('#card-slot');
+  const crewId = state.activeCrew;
+  const waiting = needsSignOff(crewId);
+  const outstanding = m.duties.filter((id) => !m.done.includes(id));
+  const claimed = missionClaimed(m);
+
+  const c = el(`
+    <div class="card onmission">
+      <div class="deck">On mission · ${m.duties.length} jobs</div>
+      <div class="meta">${
+        waiting
+          ? `<span class="chip pts">${m.done.length} of ${m.duties.length} done</span>${
+              claimed.length ? `<span class="chip">${missionValue(m).total} merit to sign</span>` : ''
+            }`
+          : `<span class="chip pts">${missionPotential(m)} merit left</span><span class="chip mins">~${
+              outstanding.reduce((a, id) => a + dutyById[id].mins, 0)
+            } min</span>`
+      }</div>
+      <div class="mission-list"></div>
+      <div class="actions">
+        ${waiting && claimed.length
+          ? `<div class="await">🫡 Tell the ${crewName('adult')} when you're done<span>They'll sign off what you've ticked</span></div>`
+          : ''}
+        <div class="row">
+          ${missionSlots(crewId) ? '<button class="ghost" id="more">＋ Add another</button>' : ''}
+          <button class="ghost" id="drop">Hand ${outstanding.length > 1 ? 'them' : 'it'} back</button>
+        </div>
+      </div>
+    </div>`);
+
+  const list = c.querySelector('.mission-list');
+  m.duties.forEach((id) => {
+    const d = dutyById[id];
+    const done = m.done.includes(id);
+    const row = el(`
+      <button class="sprint-task ${done ? 'done' : ''}" ${done ? 'disabled' : ''}>
+        <span class="em">${d.icon}</span>
+        <div class="body">
+          <div class="t">${d.name}</div>
+          <div class="d">${deckName(d.deck)} · ${value(id)} merit</div>
+        </div>
+        <span class="tick">${done ? '✓' : '○'}</span>
+      </button>`);
+    if (!done) {
+      row.onclick = () => {
+        const before = badgeSnapshot(crewId);
+        const pts = tickMissionDuty(crewId, id);
+        if (waiting) toast(`✅ ${d.name} — ready to sign off`);
+        else bankToast(crewId, before, pts);
+        card = null;
+        renderAll();
+      };
+    }
+    list.append(row);
+  });
+
+  slot.append(c);
+
+  const more = c.querySelector('#more');
+  if (more) more.onclick = () => switchView('ship');
+  c.querySelector('#drop').onclick = () => {
+    abandonMission(crewId);
+    card = null;
+    renderAll();
+    toast(waiting && m.done.length ? 'Handed back — nothing was signed.' : 'Handed back. No harm done.');
+  };
+}
+
 /** The accepted mission, replacing the draw until it's resolved. */
 function renderMission(m) {
   const slot = $('#card-slot');
+  // Several jobs picked deliberately get a checklist; a cleared drill is
+  // already done and only waiting to be signed, so it stays a single card.
+  if (!m.drill && m.duties.length > 1) return renderMissionList(m);
+
   const waiting = needsSignOff(state.activeCrew);
   const v = missionValue(m);
   const first = dutyById[m.duties[0]];
@@ -149,16 +228,25 @@ function renderSignOff() {
   pending.forEach((p) => {
     const cw = crewById(p.crewId);
     const v = missionValue(p);
-    const one = dutyById[p.duties[0]];
+    // Only what they actually ticked is up for signing — the rest of a
+    // part-done mission is still theirs to finish or hand back.
+    const claimedIds = missionClaimed(p);
+    const one = dutyById[claimedIds[0]];
     const row = el(`
       <div class="so-row">
-        <span class="em">${p.drill ? '🚨' : one.icon}</span>
+        <span class="em">${p.drill || v.count > 1 ? '🚨' : one.icon}</span>
         <div class="body">
-          <div class="t">${p.drill ? `Drill · ${p.duties.length} jobs` : one.name}</div>
-          <div class="s">${cw.emoji} ${crewName(p.crewId)} · ${
+          <div class="t">${
             p.drill
-              ? p.duties.map((id) => dutyById[id].name).join(', ')
-              : deckName(one.deck)
+              ? `Drill · ${p.duties.length} jobs`
+              : v.count > 1
+                ? `${v.count} of ${p.duties.length} jobs`
+                : dutyById[claimedIds[0]].name
+          }</div>
+          <div class="s">${cw.emoji} ${crewName(p.crewId)} · ${
+            v.count > 1 || p.drill
+              ? claimedIds.map((id) => dutyById[id].name).join(', ')
+              : deckName(dutyById[claimedIds[0]].deck)
           } · ${v.total} merit</div>
         </div>
         <button class="ok">✓</button>
@@ -370,14 +458,18 @@ function payChip(id) {
  */
 function openDeck(deckId) {
   const deck = deckById[deckId];
+  const crewId = state.activeCrew;
   const pct = deckIntegrity(deckId);
   const all = DUTIES.filter((d) => d.deck === deckId && !d.track);
-  const canDo = eligible(state.activeCrew).map((d) => d.id);
-  const mine = all.filter((d) => canDo.includes(d.id));
-  const theirs = all.filter((d) => !canDo.includes(d.id));
-  // One mission at a time is the point — the accepted card is the whole of
-  // what you're being asked for.
-  const busy = !!activeMission(state.activeCrew);
+  const canDo = eligible(crewId).map((d) => d.id);
+  const onMission = activeMission(crewId);
+  const taken = onMission ? onMission.duties : [];
+  const mine = all.filter((d) => canDo.includes(d.id) && !taken.includes(d.id));
+  const theirs = all.filter((d) => !canDo.includes(d.id) && !taken.includes(d.id));
+  // Room left on the mission. The draw still deals one card at a time; picking
+  // several is only ever a deliberate act in a room somebody chose to open.
+  const room = missionSlots(crewId);
+  const sel = new Set();
 
   const line = (d, actionable) => {
     const st = dutyState(d.id);
@@ -385,8 +477,8 @@ function openDeck(deckId) {
     let why = '';
     if (!actionable) {
       const owners = d.owners ?? deck.owners;
-      if (!d.who.includes(state.activeCrew)) why = 'Not your job';
-      else if (owners && !owners.includes(state.activeCrew))
+      if (!d.who.includes(crewId)) why = 'Not your job';
+      else if (owners && !owners.includes(crewId))
         why = `Held for ${owners.map(crewName).join(' & ')}`;
       else why = 'Put off until tomorrow';
     }
@@ -396,12 +488,18 @@ function openDeck(deckId) {
         <div class="body">
           <div class="t">${d.name}</div>
           <div class="s"><span class="st ${st.cls}">${st.text}</span>${
-            actionable ? ` · ${value(d.id)} merit` : ''
+            actionable ? ` · ${value(d.id)} merit · ~${d.mins} min` : ''
           }${mult > 1.01 && actionable ? ` · ⚠ ×${+mult.toFixed(2)}` : ''}${why ? ` · ${why}` : ''}</div>
         </div>
-        ${actionable ? `<button class="do"${busy ? ' disabled' : ''}>Take</button>` : ''}
+        ${actionable && room ? '<button class="pick" aria-pressed="false">＋</button>' : ''}
       </div>`;
   };
+
+  const note = !room
+    ? `<p class="sprint-sub" style="color:var(--amber)">Your mission is full — finish some of it or hand it back first.</p>`
+    : onMission
+      ? `<p class="sprint-sub">Already on ${taken.length} job${taken.length > 1 ? 's' : ''} · room for ${room} more</p>`
+      : `<p class="sprint-sub">Pick one, or up to ${room} if you fancy a run at it.</p>`;
 
   const ov = el(`
     <div class="overlay">
@@ -413,7 +511,15 @@ function openDeck(deckId) {
         <p class="sprint-sub">${deck.sub} · ${STATUS[band(pct)]}</p>
         <div class="bar ${band(pct)}" style="margin-bottom:16px"><span style="width:${Math.max(2, pct * 100)}%"></span></div>
 
-        ${busy ? '<p class="sprint-sub" style="color:var(--amber)">You\'re already on a mission — finish or hand it back first.</p>' : ''}
+        ${note}
+
+        ${taken.length
+          ? `<h3 class="seg">Already on your mission</h3>${taken
+              .map((id) => `<div class="dutyline off"><span class="em">${dutyById[id].icon}</span>
+                <div class="body"><div class="t">${dutyById[id].name}</div>
+                <div class="s">Taken</div></div></div>`)
+              .join('')}`
+          : ''}
 
         ${mine.length
           ? `<h3 class="seg">Yours to do here</h3>${mine.map((d) => line(d, true)).join('')}`
@@ -423,19 +529,49 @@ function openDeck(deckId) {
           ? `<h3 class="seg">Not yours right now</h3>${theirs.map((d) => line(d, false)).join('')}`
           : ''}
 
-        <button class="ghost wide" id="close" style="margin-top:20px">Close</button>
+        <button class="btn wide hidden" id="take" style="margin-top:20px"></button>
+        <button class="ghost wide" id="close" style="margin-top:12px">Close</button>
       </div>
     </div>`);
 
-  ov.querySelectorAll('.dutyline .do').forEach((b) => {
+  const takeBtn = ov.querySelector('#take');
+  const refresh = () => {
+    takeBtn.classList.toggle('hidden', sel.size === 0);
+    const mins = [...sel].reduce((a, id) => a + dutyById[id].mins, 0);
+    takeBtn.textContent = `Take ${sel.size} job${sel.size > 1 ? 's' : ''} · ~${mins} min`;
+    // Once the mission would be full, the rest stop offering themselves rather
+    // than failing on the tap.
+    ov.querySelectorAll('.dutyline .pick').forEach((b) => {
+      const id = b.closest('.dutyline').dataset.id;
+      b.disabled = !sel.has(id) && sel.size >= room;
+    });
+  };
+
+  ov.querySelectorAll('.dutyline .pick').forEach((b) => {
     b.onclick = () => {
       const id = b.closest('.dutyline').dataset.id;
-      acceptMission(state.activeCrew, id);
-      ov.remove();
-      switchView('duty');
-      toast(`🎯 Mission accepted — ${dutyById[id].name}`);
+      const on = sel.has(id);
+      if (on) sel.delete(id);
+      else sel.add(id);
+      b.textContent = on ? '＋' : '✓';
+      b.setAttribute('aria-pressed', String(!on));
+      b.classList.toggle('on', !on);
+      refresh();
     };
   });
+
+  takeBtn.onclick = () => {
+    const ids = [...sel];
+    const n = onMission ? addToMission(crewId, ids) : acceptMission(crewId, ids);
+    ov.remove();
+    switchView('duty');
+    toast(
+      n === 1
+        ? `🎯 Mission accepted — ${dutyById[ids[0]].name}`
+        : `🎯 ${n} jobs accepted — tick them off as you go`
+    );
+  };
+
   ov.querySelector('#close').onclick = () => ov.remove();
   document.body.append(ov);
 }

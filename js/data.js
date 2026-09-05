@@ -103,6 +103,13 @@ const DECK_ACCESS = {
 // The Galley is the only genuinely shared deck: anyone may be dealt those.
 const FIRST_REFUSAL = 1.5;
 
+// How many jobs one mission may hold. The home-screen draw still deals exactly
+// one card — choosing is the hard part and a wall of options is the thing this
+// app avoids. Picking several is a deliberate act inside a room you opened,
+// which is the one place the roster was always allowed to show more than one.
+// Three matches the drill, so there's a single answer to "how many at once".
+const MAX_MISSION = 3;
+
 const ZONES = {
   upper:   'Upper Deck',
   lower:   'Lower Deck',

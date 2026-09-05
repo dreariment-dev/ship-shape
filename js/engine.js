@@ -257,29 +257,95 @@ function drawSprint(crewId, n = 3) {
 
 // ── Missions ────────────────────────────────────────────────────────────────
 //
-// A duty is accepted before it's done, and one at a time — the accepted card
-// is the whole of what you're being asked for. Children's missions then need
-// signing off by an adult, which is the only check on the obvious problem
-// with letting a five-year-old mark their own homework.
+// A duty is accepted before it's done. The home-screen draw still deals one
+// card at a time, but a mission may hold up to MAX_MISSION jobs picked
+// deliberately from a room — see MAX_MISSION in data.js for why that's the one
+// place it's allowed. Children's missions then need signing off by an adult,
+// which is the only check on the obvious problem with letting a five-year-old
+// mark their own homework.
 
 const needsSignOff = (crewId) => crewId !== 'adult';
 
 /**
- * A mission holds a list of duties — one for an ordinary card, three for a
- * cleared drill. Keeping both in the same shape means the sign-off queue has
- * one thing to render and there's no second path to remember.
+ * A mission holds a list of duties — one for a card, up to MAX_MISSION picked
+ * from a room, or a cleared drill. Keeping them all in the same shape means the
+ * sign-off queue has one thing to render and there's no second path.
+ *
+ * `done` records which of them have been ticked off. An adult's tick banks the
+ * work there and then; a child's is only a claim until an adult signs it.
  */
 function activeMission(crewId) {
   const m = state.missions?.[crewId];
   if (!m) return null;
   const duties = (m.duties ?? []).filter((id) => dutyById[id]);
-  return duties.length ? { ...m, duties } : null;
+  const done = (m.done ?? []).filter((id) => duties.includes(id));
+  return duties.length ? { ...m, duties, done } : null;
 }
 
-function acceptMission(crewId, dutyId) {
+/** Take one job or several. Anything already accepted is replaced. */
+function acceptMission(crewId, dutyIds) {
+  const ids = [].concat(dutyIds).slice(0, MAX_MISSION);
   state.missions ??= {};
-  state.missions[crewId] = { duties: [dutyId], at: Date.now(), drill: false };
+  state.missions[crewId] = { duties: ids, done: [], at: Date.now(), drill: false };
   save();
+  return ids.length;
+}
+
+/** Room left on the current mission — 0 means it's full. */
+function missionSlots(crewId) {
+  const m = activeMission(crewId);
+  return m ? Math.max(0, MAX_MISSION - m.duties.length) : MAX_MISSION;
+}
+
+/**
+ * Add jobs to a mission already under way, so a second room can be taken on
+ * without handing back the first. Silently stops at the cap rather than
+ * failing — the caller has already been told how much room there was.
+ */
+function addToMission(crewId, dutyIds) {
+  const m = activeMission(crewId);
+  if (!m) return acceptMission(crewId, dutyIds);
+  const room = missionSlots(crewId);
+  const fresh = [].concat(dutyIds).filter((id) => !m.duties.includes(id)).slice(0, room);
+  if (!fresh.length) return 0;
+  state.missions[crewId].duties = [...m.duties, ...fresh];
+  save();
+  return fresh.length;
+}
+
+/**
+ * Tick one job off. An adult's lands immediately; a child's is held as a claim
+ * and pays nothing until it's signed — the rule the drill already works by.
+ * Returns the merit banked, which is 0 for anyone awaiting sign-off.
+ */
+function tickMissionDuty(crewId, dutyId) {
+  const m = activeMission(crewId);
+  if (!m || !m.duties.includes(dutyId) || m.done.includes(dutyId)) return 0;
+  if (needsSignOff(crewId)) {
+    state.missions[crewId].done = [...m.done, dutyId];
+    save();
+    return 0;
+  }
+  // An adult's tick banks there and then, so the job leaves the mission
+  // outright — what's still on the card is always what's still outstanding,
+  // and `done` stays purely a record of what a child is claiming.
+  const pts = complete(dutyId, crewId);
+  const left = m.duties.filter((id) => id !== dutyId);
+  if (left.length) state.missions[crewId].duties = left;
+  else delete state.missions[crewId];
+  save();
+  return pts;
+}
+
+/**
+ * What a mission will actually bank. A drill banks what was cleared and a
+ * single job is all-or-nothing, both as they always were; a multi-job mission
+ * banks only what was ticked, so taking three and doing two costs nothing and
+ * requires nobody to lie about the third.
+ */
+function missionClaimed(m) {
+  if (m.drill || m.duties.length === 1) return m.duties;
+  return m.duties.filter((id) => m.done.includes(id));
 }
 
 /** A drill a child has cleared, banked whole for an adult to approve. */
@@ -289,23 +355,42 @@ function acceptDrill(crewId, dutyIds, full) {
   save();
 }
 
-/** What a mission is worth right now, before anyone signs anything. */
+/**
+  * What a mission is worth right now, before anyone signs anything — counted
+  * over what will actually bank, so a part-done set of jobs is priced honestly
+  * rather than promising merit for work nobody has done yet.
+  */
 function missionValue(m) {
-  const base = m.duties.reduce((a, id) => a + value(id), 0);
-  const bonus = m.drill && m.full ? Math.round(m.duties.reduce((a, id) => a + dutyById[id].pts, 0) * 0.5) : 0;
-  return { base, bonus, total: base + bonus };
+  const claimed = missionClaimed(m);
+  const base = claimed.reduce((a, id) => a + value(id), 0);
+  const bonus = m.drill && m.full ? Math.round(claimed.reduce((a, id) => a + dutyById[id].pts, 0) * 0.5) : 0;
+  return { base, bonus, total: base + bonus, count: claimed.length };
 }
 
-/** Handed back with no penalty — an abandoned job isn't a ducked one. */
+/** What a mission could still be worth if the rest of it got done. */
+const missionPotential = (m) => m.duties.reduce((a, id) => a + value(id), 0);
+
+/**
+  * Handed back with no penalty — an abandoned job isn't a ducked one. Anything
+  * an adult already ticked is banked and gone from the mission by this point,
+  * so handing back the rest can never cost work that was actually done.
+  */
 function abandonMission(crewId) {
   if (state.missions) delete state.missions[crewId];
   save();
 }
 
-/** Everyone waiting on an adult, oldest first. */
+/**
+  * Everyone waiting on an adult, oldest first. A multi-job mission only joins
+  * the queue once something has actually been claimed — an untouched set of
+  * jobs is still being worked on, not waiting on anybody.
+  */
 function pendingSignOff() {
   return Object.keys(state.missions ?? {})
-    .filter((crewId) => needsSignOff(crewId) && activeMission(crewId))
+    .filter((crewId) => {
+      const m = needsSignOff(crewId) && activeMission(crewId);
+      return m && missionClaimed(m).length > 0;
+    })
     .map((crewId) => ({ crewId, ...activeMission(crewId) }))
     .sort((a, b) => a.at - b.at);
 }
@@ -314,14 +399,20 @@ function pendingSignOff() {
 function signOff(crewId) {
   const m = activeMission(crewId);
   if (!m) return 0;
-  let pts = m.duties.reduce((a, id) => a + complete(id, crewId), 0);
+  const claimed = missionClaimed(m);
+  let pts = claimed.reduce((a, id) => a + complete(id, crewId), 0);
   // The drill bonus is part of what's being approved, not a separate award.
   if (m.drill && m.full) {
-    const bonus = Math.round(m.duties.reduce((a, id) => a + dutyById[id].pts, 0) * 0.5);
+    const bonus = Math.round(claimed.reduce((a, id) => a + dutyById[id].pts, 0) * 0.5);
     state.log.push({ t: Date.now(), crew: crewId, duty: 'bonus:redalert', pts: bonus });
     pts += bonus;
   }
-  delete state.missions[crewId];
+  // Signing off what was done shouldn't throw away what wasn't: a job they
+  // haven't got to yet stays on their mission rather than quietly vanishing.
+  // A single job and a cleared drill claim everything, so both end here.
+  const left = m.duties.filter((id) => !claimed.includes(id));
+  if (left.length) state.missions[crewId] = { ...m, duties: left, done: [] };
+  else delete state.missions[crewId];
   save();
   return pts;
 }

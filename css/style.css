@@ -193,6 +193,7 @@ main {
   letter-spacing: 0.02em;
 }
 .btn:active { transform: scale(0.98); }
+.btn.wide { width: 100%; }
 
 .ghost {
   min-height: var(--tap);
@@ -325,7 +326,7 @@ main {
 .so-row .ok { background: var(--green); color: #04140c; }
 .so-row .no { background: #2a1620; color: var(--red); border: 1px solid #4a2b33; }
 
-.dutyline .do[disabled] { opacity: 0.35; }
+
 
 .empty { text-align: center; color: var(--dim); padding: 40px 20px; }
 .empty .big { font-size: 46px; display: block; margin-bottom: 10px; }
@@ -396,16 +397,24 @@ main {
 .dutyline .t { font-size: 15px; font-weight: 600; }
 .dutyline .s { font-size: 12px; color: var(--dim); margin-top: 2px; }
 .dutyline.off { opacity: 0.5; }
-.dutyline .do {
-  min-width: 62px;
+.dutyline .pick {
+  min-width: 52px;
   min-height: 44px;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--cyan);
-  color: #04121b;
+  background: #0b1322;
+  color: var(--cyan);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 18px;
 }
+.dutyline .pick.on {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  color: #04121b;
+}
+/* Dimmed rather than hidden once the mission is full: the job is still there,
+   it just can't be added to this run. */
+.dutyline .pick[disabled] { opacity: 0.3; }
 .st.fresh { color: var(--green); }
 .st.soon { color: var(--dim); }
 .st.due { color: var(--amber); }
@@ -553,8 +562,15 @@ main {
 .clock.low { color: var(--red); }
 .sprint-sub { color: var(--dim); font-size: 13px; margin: 6px 0 14px; }
 
+/* Also the mission checklist, where the whole row is the tap target. */
+.mission-list { margin: 14px 0 4px; text-align: left; }
+
 .sprint-task {
   display: flex;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
   align-items: center;
   gap: 12px;
   padding: 14px 12px;
@@ -576,6 +592,9 @@ main {
 }
 .sprint-task.done { opacity: 0.45; }
 .sprint-task.done button { background: var(--green); }
+.sprint-task .tick { font-size: 22px; color: var(--cyan); min-width: 32px; text-align: center; }
+.sprint-task.done .tick { color: var(--green); }
+.sprint-task:active { transform: scale(0.99); }
 
 /* ── Toast ────────────────────────────────────────────────────────────────── */
 

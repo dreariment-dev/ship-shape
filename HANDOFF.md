@@ -1,7 +1,7 @@
 # Ship Shape — handoff
 
 Gamified cleaning for a household of four, themed as keeping a starship running.
-Built 29–30 Aug 2026 in one session; nineteen releases. **Nobody has used it
+Built 29–30 Aug 2026 in one session; twenty releases. **Nobody has used it
 for a real week yet**, so every number below is a considered guess, not a
 measured one.
 
@@ -46,7 +46,9 @@ normally does, and the exclusions matter more than the features:
   telling-off.
 - **One card at a time on the home screen.** Choosing is the hard part. The room
   detail view is the one deliberate exception — a room you opened, showing five
-  things, is a different act from a wall of ninety-six.
+  things, is a different act from a wall of ninety-six. Taking several jobs at
+  once lives *there* and nowhere else, for that reason: the draw still deals
+  exactly one card, and picking a handful is something you go and do on purpose.
 - **Activation energy is the enemy**, not laziness — hence the smallest-job
   button and the timed drill.
 
@@ -86,13 +88,22 @@ quietly-forgotten jobs stayed cheap forever.
 The backstop in (3) matters as much as the reservation: without it a room nobody
 touches decays forever with no way back.
 
-**Missions.** Nothing completes on the spot. A duty is *accepted*, becoming that
-crew member's single open mission, and a child's is then signed off by an adult
-— the only check on a nine-year-old marking their own homework. A mission holds
-a **list** of duties: one for a card, up to three for a cleared drill, so the
-sign-off queue has one shape to render and there's no second code path. Adults
-complete their own directly. Handing a mission back costs nothing — abandoning
-isn't ducking, and only ducking should raise the price.
+**Missions.** Nothing completes on the spot. A duty is *accepted*, becoming part
+of that crew member's single open mission, and a child's is then signed off by an
+adult — the only check on a nine-year-old marking their own homework. A mission
+holds a **list** of duties: one from a card, up to `MAX_MISSION` (3) picked from
+a room, or whatever a drill cleared. One shape means the sign-off queue has one
+thing to render and there's no second code path. Handing a mission back costs
+nothing — abandoning isn't ducking, and only ducking should raise the price.
+
+**A multi-job mission is ticked off one job at a time**, and this is where the
+rules earn their keep. An adult's tick banks there and then and the job leaves
+the mission, so what's on the card is always what's still outstanding. A child's
+tick is only a *claim*; it pays nothing until an adult signs it, which is the
+same rule the drill already ran on. Signing off pays for what was ticked and
+**leaves the rest of the mission in place** rather than discarding it. Taking
+three and doing two must never be worse than taking one — otherwise the honest
+move is to under-commit, and the app would be teaching that.
 
 **Both children are cadets on identical mechanics** — same merit economy, same
 rank ladder, same hangar, one measure of a won week. What differs is only the
@@ -183,7 +194,7 @@ the stair spindles stay adults-only — same name, different work.
 
 ## Verified, and not
 
-`node tests/engine.test.js` — 64 tests, no framework, no dependencies. They pin
+`node tests/engine.test.js` — 73 tests, no framework, no dependencies. They pin
 the safety rules, the access rules, first refusal *and* its backstop, that
 nothing pays out before sign-off, that merit lands on whoever did the work, that
 neglect raises pay and stays capped, the Friday week boundary in all four cases
@@ -198,6 +209,12 @@ none, that **a droid earned weeks ago survives a bad week**, and that the v1
 name migration renames the old defaults without touching a name the crew chose,
 that **nobody is shown a droid they could never earn**, and that a droid
 survives its duty being renamed — from both a stamped and an unstamped save.
+
+Multi-job missions add nine: the cap holds, a job can't be taken twice, an
+adult's tick banks and leaves the mission, a child's pays nothing until signed,
+signing pays only for what was ticked **and keeps the rest**, an untouched
+mission stays out of the sign-off queue, handing several back raises nobody's
+hazard pay, and the one-job path behaves exactly as it always did.
 
 `freshness()` is derived from elapsed time, so a just-completed duty reads
 0.99999994 rather than 1. Assertions use a `near()` helper — **don't reintroduce
@@ -269,7 +286,7 @@ independent agents flag separately is almost certainly real.
   old handset and editable without tooling. ~2,400 lines all in.
 - **Bump `CACHE` in `sw.js` on every release** or installed phones keep the old
   files. The app reloads itself once when the new worker takes over, so nobody
-  ever reinstalls. Currently `shipshape-v19`.
+  ever reinstalls. Currently `shipshape-v20`.
 - `tools/build-roster.js` regenerates the browsable duty reference from
   `data.js`, reading the crew and roster live so it can't drift. Published at
   https://claude.ai/code/artifact/f90a70c4-95a8-465d-a12f-941c8a360bc2

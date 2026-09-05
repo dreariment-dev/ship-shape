@@ -1016,3 +1016,159 @@ run('a save written before the stamp keeps its droids', () => {
   assert.strictEqual(res.glass, 3, 'unstamped entries stopped counting towards a speciality');
   assert.strictEqual(res.aboard, 1, 'an old save lost its droids');
 });
+
+// ── Taking several jobs at once ─────────────────────────────────────────────
+
+run('a mission can hold several jobs, up to the cap', () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const pool = eligible('adult').slice(0, MAX_MISSION + 2).map(d => d.id);
+      acceptMission('adult', pool.slice(0, 2));
+      const two = activeMission('adult').duties.length;
+      const slots = missionSlots('adult');
+      // Asking for more than fits must stop at the cap, not overflow it.
+      addToMission('adult', pool.slice(2));
+      return { two, slots, after: activeMission('adult').duties.length, cap: MAX_MISSION };
+    })()`);
+  assert.strictEqual(res.two, 2, 'two jobs were not accepted together');
+  assert.strictEqual(res.slots, res.cap - 2, 'the free slots were miscounted');
+  assert.strictEqual(res.after, res.cap, `a mission grew past the cap to ${res.after}`);
+});
+
+run('the same job cannot be taken twice on one mission', () => {
+  const res = ctx(`
+    (() => {
+      load(); state.missions = {};
+      const id = eligible('adult')[0].id;
+      acceptMission('adult', [id]);
+      const added = addToMission('adult', [id]);
+      return { added, duties: activeMission('adult').duties.length };
+    })()`);
+  assert.strictEqual(res.added, 0, 'a duplicate job was added');
+  assert.strictEqual(res.duties, 1, 'the mission holds the same job twice');
+});
+
+run("an adult's tick banks immediately and leaves the mission", () => {
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const ids = eligible('adult').slice(0, 3).map(d => d.id);
+      acceptMission('adult', ids);
+      const pts = tickMissionDuty('adult', ids[0]);
+      const m = activeMission('adult');
+      return { pts, left: m.duties.length, gone: !m.duties.includes(ids[0]), merit: weekTotal('adult') };
+    })()`);
+  assert.ok(res.pts > 0, 'an adult ticked a job and banked nothing');
+  assert.strictEqual(res.merit, res.pts, 'the merit did not land');
+  assert.strictEqual(res.left, 2, 'the ticked job stayed on the mission');
+  assert.strictEqual(res.gone, true, 'the ticked job is still outstanding');
+});
+
+run('a mission ends when an adult ticks the last of it', () => {
+  const ok = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const ids = eligible('adult').slice(0, 2).map(d => d.id);
+      acceptMission('adult', ids);
+      ids.forEach(id => tickMissionDuty('adult', id));
+      return activeMission('adult') === null;
+    })()`);
+  assert.strictEqual(ok, true, 'a fully ticked mission is still open');
+});
+
+run("a child's ticks pay nothing until they are signed off", () => {
+  // The whole point of sign-off: a nine-year-old marking their own homework.
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const ids = eligible('k9').slice(0, 3).map(d => d.id);
+      acceptMission('k9', ids);
+      tickMissionDuty('k9', ids[0]);
+      tickMissionDuty('k9', ids[1]);
+      const beforeSign = weekTotal('k9');
+      const queued = pendingSignOff().length;
+      const pts = signOff('k9');
+      return { beforeSign, queued, pts, after: weekTotal('k9') };
+    })()`);
+  assert.strictEqual(res.beforeSign, 0, 'a child banked merit before sign-off');
+  assert.strictEqual(res.queued, 1, 'the part-done mission never reached the adult');
+  assert.ok(res.pts > 0, 'signing off paid nothing');
+  assert.strictEqual(res.after, res.pts, 'the merit did not land on the child');
+});
+
+run('signing off pays for the ticked jobs only, and keeps the rest', () => {
+  // Taking three and doing two must never be worse than taking one: the third
+  // is neither paid for nor thrown away.
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const ids = eligible('k9').slice(0, 3).map(d => d.id);
+      // Stamp them due rather than trusting whatever an earlier test left:
+      // this suite shares one localStorage, so seeded ages can't be assumed.
+      ids.forEach(id => { state.duties[id].last = Date.now() - dutyById[id].days * 86400000; });
+      acceptMission('k9', ids);
+      tickMissionDuty('k9', ids[0]);
+      const owed = missionValue(activeMission('k9')).total;
+      const paid = signOff('k9');
+      const m = activeMission('k9');
+      return {
+        owed, paid,
+        left: m ? m.duties : [],
+        untouched: ids.slice(1).every(id => dueness(id) > 0.5),
+        doneOne: dueness(ids[0]) < 0.0001,
+      };
+    })()`);
+  assert.strictEqual(res.paid, res.owed, 'the payment did not match what was claimed');
+  assert.strictEqual([...res.left].length, 2, 'the unfinished jobs were lost at sign-off');
+  assert.strictEqual(res.untouched, true, 'a job nobody ticked was marked done anyway');
+  assert.strictEqual(res.doneOne, true, 'the ticked job was not completed');
+});
+
+run('an untouched multi-job mission is nobody else’s problem yet', () => {
+  const queued = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      acceptMission('k9', eligible('k9').slice(0, 3).map(d => d.id));
+      return pendingSignOff().length;
+    })()`);
+  assert.strictEqual(queued, 0, 'a mission with nothing done was queued for sign-off');
+});
+
+run('handing back several jobs costs nothing', () => {
+  // Abandoning isn't ducking — only ducking raises the price.
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const ids = eligible('k9').slice(0, 3).map(d => d.id);
+      const skips = ids.map(id => state.duties[id].skips);
+      acceptMission('k9', ids);
+      tickMissionDuty('k9', ids[0]);
+      abandonMission('k9');
+      return {
+        open: activeMission('k9') !== null,
+        merit: weekTotal('k9'),
+        raised: ids.some((id, i) => state.duties[id].skips !== skips[i]),
+      };
+    })()`);
+  assert.strictEqual(res.open, false, 'the mission survived being handed back');
+  assert.strictEqual(res.merit, 0, 'handing back paid out');
+  assert.strictEqual(res.raised, false, 'handing back raised the hazard pay');
+});
+
+run('one job at a time still behaves exactly as it did', () => {
+  // The single-card path is the common one and must not have moved.
+  const res = ctx(`
+    (() => {
+      load(); state.log = []; state.missions = {};
+      const id = eligible('adult')[0].id;
+      acceptMission('adult', id);           // a bare id, not an array
+      const m = activeMission('adult');
+      const worth = missionValue(m).total;
+      const pts = signOff('adult');
+      return { duties: m.duties.length, worth, pts, open: activeMission('adult') !== null };
+    })()`);
+  assert.strictEqual(res.duties, 1, 'a bare duty id no longer makes a one-job mission');
+  assert.strictEqual(res.pts, res.worth, 'a single job paid something other than its value');
+  assert.strictEqual(res.open, false, 'the single-job mission stayed open after sign-off');
+});
