@@ -75,6 +75,21 @@ function reconcileRoster() {
       state.missions[crewId] = { duties: [m.duty], at: m.at, drill: false };
     }
   });
+  // A duty dropped from the roster can still be sitting in somebody's open
+  // mission. Orphaned *history* is kept deliberately, but an orphaned mission
+  // is a card for a job that no longer exists — and every reader of it looks
+  // the duty up. Take the dead jobs out, and the mission with them if that's
+  // all it was; anything already ticked stays paid for in the log.
+  Object.entries(state.missions).forEach(([crewId, m]) => {
+    if (!m || !m.duties) return;
+    const live = m.duties.filter((id) => dutyById[id]);
+    if (live.length === m.duties.length) return;
+    if (live.length) {
+      state.missions[crewId] = { ...m, duties: live, done: (m.done ?? []).filter((id) => dutyById[id]) };
+    } else {
+      delete state.missions[crewId];
+    }
+  });
   state.crewNames ??= {};
   state.deckNames ??= {};
   CREW.forEach((c) => { state.crewNames[c.id] ??= c.name; });

@@ -148,53 +148,50 @@ run('the adult still backstops a bedroom left to rot', () => {
   assert.strictEqual(reached, true, 'a rotting bedroom never reaches the adult');
 });
 
-run("the children's standing orders in the Galley are held for them", () => {
-  // The island and the table are their stuff to shift, even though the Galley
-  // itself is shared — duty-level owners must override the deck's.
+run('a duty with its own owner is held for them inside a shared deck', () => {
+  // A standing order — one job in a shared room that is somebody's own to
+  // shift — is duty-level `owners` overriding the deck's. The roster carries
+  // none at the moment, so the rule is tested against a duty this test adds
+  // and then takes away again: proving the mechanism, not the current roster.
   const res = ctx(`
     (() => {
       load();
-      DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
-      const orders = DUTIES.filter(d => d.owners && d.deck === 'galley').map(d => d.id);
-      const seen = new Set();
-      for (let i = 0; i < 4000; i++) { const d = draw('adult'); if (d) seen.add(d.id); }
-      return {
-        orders: orders.length,
-        leaked: orders.filter(id => seen.has(id)),
-        galleyStillOpen: [...seen].some(id => dutyById[id].deck === 'galley'),
+      const probe = {
+        id: 'galley:probe-standing-order', deck: 'galley', name: 'Probe standing order',
+        icon: '🧪', tier: 'often', days: 3, pts: 10, mins: 5, who: ALL,
+        owners: ['k9'], spec: null,
       };
-    })()`);
-  assert.strictEqual(res.orders, 2, 'expected two duty-level standing orders in the Galley');
-  assert.strictEqual(res.leaked.length, 0, `adult was offered: ${[...res.leaked].join(', ')}`);
-  assert.strictEqual(res.galleyStillOpen, true, 'reserving two duties closed the whole Galley');
-});
-
-run('both children can be dealt their Galley standing orders', () => {
-  ['k9', 'k5'].forEach((id) => {
-    const ok = ctx(`
-      (() => {
-        load();
-        DUTIES.forEach(d => { state.duties[d.id].last = Date.now() - d.days * 86400000 * 1.1; });
-        const orders = DUTIES.filter(d => d.owners).map(d => d.id);
-        for (let i = 0; i < 3000; i++) { const d = draw('${id}'); if (d && orders.includes(d.id)) return true; }
+      DUTIES.push(probe);
+      dutyById[probe.id] = probe;
+      const overdueBy = (n) => { state.duties[probe.id] = { last: Date.now() - probe.days * 86400000 * n, skips: 0, snooze: 0 }; };
+      const dealt = (crew, tries) => {
+        for (let i = 0; i < tries; i++) { const d = draw(crew); if (d && d.id === probe.id) return true; }
         return false;
-      })()`);
-    assert.strictEqual(ok, true, `${id} cannot be dealt their own standing orders`);
-  });
-});
-
-run('a standing order left undone still reaches the adult', () => {
-  const reached = ctx(`
-    (() => {
-      load();
-      DUTIES.filter(d => d.owners).forEach(d => {
-        state.duties[d.id].last = Date.now() - d.days * 86400000 * 3;
-      });
-      const orders = DUTIES.filter(d => d.owners).map(d => d.id);
-      for (let i = 0; i < 3000; i++) { const d = draw('adult'); if (d && orders.includes(d.id)) return true; }
-      return false;
+      };
+      try {
+        overdueBy(1.1);
+        const heldFromAdult = !dealt('adult', 4000);
+        const galleyStillOpen = (() => {
+          for (let i = 0; i < 4000; i++) { const d = draw('adult'); if (d && d.deck === 'galley') return true; }
+          return false;
+        })();
+        overdueBy(1.1);
+        const ownerGetsIt = dealt('k9', 3000);
+        overdueBy(3);
+        const reachesAdultEventually = dealt('adult', 3000);
+        return { heldFromAdult, galleyStillOpen, ownerGetsIt, reachesAdultEventually };
+      } finally {
+        // One sandbox serves every test in this file, so the probe has to leave
+        // exactly as it arrived.
+        DUTIES.pop();
+        delete dutyById[probe.id];
+        delete state.duties[probe.id];
+      }
     })()`);
-  assert.strictEqual(reached, true, 'a neglected standing order never reaches the adult');
+  assert.strictEqual(res.heldFromAdult, true, 'the adult was offered a duty held for its owner');
+  assert.strictEqual(res.ownerGetsIt, true, 'the owner was never dealt their own standing order');
+  assert.strictEqual(res.galleyStillOpen, true, 'reserving one duty closed the whole shared deck');
+  assert.strictEqual(res.reachesAdultEventually, true, 'a neglected standing order never reaches the adult');
 });
 
 run('the Galley stays open to everyone', () => {
@@ -845,6 +842,41 @@ run('a save missing new duties backfills them', () => {
       return !!state.duties[DUTIES[0].id];
     })()`);
   assert.strictEqual(ok, true);
+});
+
+run('a mission holding a deleted duty is cleaned up on load', () => {
+  // Duties do get dropped from the roster. Their history stays — but a card for
+  // a job that no longer exists is looked up by everything that reads a
+  // mission, so it has to go, and the mission with it if that was all it held.
+  const res = ctx(`
+    (() => {
+      const kept = localStorage.getItem('shipshape.v1');
+      const liveId = DUTIES.find(d => !d.track).id;
+      localStorage.setItem('shipshape.v1', JSON.stringify({
+        v: 3, crewNames: {}, deckNames: {}, duties: {}, log: [], activeCrew: 'k9',
+        missions: {
+          k9: { duties: ['galley:a-duty-that-was-deleted'], done: [], at: Date.now(), drill: false },
+          k5: {
+            duties: [liveId, 'galley:another-deleted-one'],
+            done: ['galley:another-deleted-one'],
+            at: Date.now(), drill: false,
+          },
+        },
+      }));
+      load();
+      const out = {
+        liveId,
+        k9Gone: state.missions.k9 === undefined,
+        k5Duties: state.missions.k5 ? state.missions.k5.duties.join(',') : null,
+        k5Done: state.missions.k5 ? state.missions.k5.done.join(',') : null,
+      };
+      localStorage.setItem('shipshape.v1', kept);
+      load();
+      return out;
+    })()`);
+  assert.strictEqual(res.k9Gone, true, 'a mission of nothing but deleted duties survived');
+  assert.strictEqual(res.k5Duties, res.liveId, 'a deleted duty stayed on a mission that still had live jobs');
+  assert.strictEqual(res.k5Done, '', 'a deleted duty stayed in the done list');
 });
 
 // ── The hangar ──────────────────────────────────────────────────────────────

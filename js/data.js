@@ -142,29 +142,23 @@ const ADULT = ['adult'];
 // pts is derived from the tier unless overridden — overrides are for jobs that
 // are disproportionately grim for their frequency (stair spindles, the oven).
 const DUTIES = [
-  // ── Galley ────────────────────────────────────────────────────────────────
-  // The Galley is shared ground, but these two are the children's own standing
-  // orders: their stuff, their job to shift it. Duty-level owners override the
-  // deck's, so first refusal applies to these without reserving the whole room.
-  { deck: 'galley', name: 'Tidy the kitchen counter', icon: '🧸', tier: 'often', mins: 5, pts: 8, who: ALL, owners: ['k9', 'k5'] },
-  { deck: 'galley', name: 'Clear the table',          icon: '🍽️', tier: 'often',    mins: 3,  who: ALL, owners: ['k9', 'k5'] },
+  // ── Kitchen ───────────────────────────────────────────────────────────────
+  // The everyday kitchen jobs — counter, table, worktops, bin — came off the
+  // roster: they happen several times a day whether or not an app deals them,
+  // and putting them in the draw only ever meant scoring work already done.
   { deck: 'galley', name: 'Sweep the galley floor',   icon: '🧹', tier: 'weekly',   mins: 5,  who: ALL },
   { deck: 'galley', name: 'Dust the shelves and tops', icon: '🪶', tier: 'biweekly', mins: 5, who: ALL },
-  { deck: 'galley', name: 'Wipe down the worktops',   icon: '🧽', tier: 'often',    mins: 5,  who: GROWN },
-  { deck: 'galley', name: 'Empty and rinse the bin',  icon: '🗑️', tier: 'often',    mins: 5,  who: ADULT },
   { deck: 'galley', name: 'Wipe the hob',             icon: '🔥', tier: 'weekly',   mins: 5,  who: ADULT },
   { deck: 'galley', name: 'Mop the galley floor',     icon: '🪣', tier: 'biweekly', mins: 10, who: ADULT },
   { deck: 'galley', name: 'Clean the microwave',      icon: '📡', tier: 'monthly',  mins: 10, who: GROWN },
   { deck: 'galley', name: 'Wipe the cupboard fronts', icon: '🚪', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'galley', name: 'Clean out one cupboard',   icon: '🗄️', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'galley', name: 'Clear out and wipe a fridge shelf', icon: '❄️', tier: 'monthly', mins: 15, who: ADULT },
-  { deck: 'galley', name: 'Descale the kettle',       icon: '🫖', tier: 'monthly',  mins: 5,  who: ADULT },
   { deck: 'galley', name: 'Skirting boards',          icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'galley', name: 'Clean the windows',        icon: '🪟', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'galley', name: 'Clean inside the oven',    icon: '🔥', tier: 'seasonal', mins: 45, who: ADULT, pts: 150 },
-  { deck: 'galley', name: 'Defrost and wipe the freezer', icon: '🧊', tier: 'seasonal', mins: 30, who: ADULT },
 
-  // ── Bridge ────────────────────────────────────────────────────────────────
+  // ── Living Room ───────────────────────────────────────────────────────────
   { deck: 'bridge', name: 'Tidy the bridge',          icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
   { deck: 'bridge', name: 'Dust the surfaces',        icon: '🪶', tier: 'biweekly', mins: 5,  who: ALL },
   { deck: 'bridge', name: 'Hoover the bridge',        icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
@@ -174,7 +168,7 @@ const DUTIES = [
   { deck: 'bridge', name: 'Clean the windows',        icon: '🪟', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'bridge', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
 
-  // ── Wardroom ──────────────────────────────────────────────────────────────
+  // ── Playroom ──────────────────────────────────────────────────────────────
   // The Playroom is shared ground for both children, so it carries more jobs
   // they can actually be dealt than a second sitting room would.
   { deck: 'playroom', name: 'Tidy the playroom',      icon: '🧸', tier: 'often',    mins: 8,  pts: 20, who: ALL },
@@ -183,43 +177,36 @@ const DUTIES = [
   { deck: 'playroom', name: 'Sort out one toy box',   icon: '🪀', tier: 'monthly',  mins: 20, who: ALL },
   { deck: 'playroom', name: 'Wipe the doors and light switches', icon: '🚪', tier: 'monthly', mins: 10, who: ALL },
   { deck: 'playroom', name: 'Skirting boards',        icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
-  { deck: 'playroom', name: 'Clean the windows',      icon: '🪟', tier: 'biweekly',  mins: 15, who: ALL },
+  { deck: 'playroom', name: 'Clean the windows',      icon: '🪟', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'playroom', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
   { deck: 'playroom', name: 'Cull the broken toys and lost pieces', icon: '🗑️', tier: 'seasonal', mins: 30, who: ADULT },
 
-  // ── Ops ───────────────────────────────────────────────────────────────────
-  { deck: 'ops', name: 'Paper and clutter sweep',     icon: '📄', tier: 'often',    mins: 5,  who: GROWN },
+  // ── Office ────────────────────────────────────────────────────────────────
   { deck: 'ops', name: 'Dust the desk and shelves',   icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
   { deck: 'ops', name: 'Hoover Ops',                  icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
   { deck: 'ops', name: 'Wipe screens and keyboard',   icon: '⌨️', tier: 'monthly',  mins: 5,  who: GROWN },
   { deck: 'ops', name: 'Skirting boards',             icon: '📏', tier: 'monthly',  mins: 10, who: ALL },
   { deck: 'ops', name: 'Clean the windows',           icon: '🪟', tier: 'monthly',  mins: 10, who: ALL },
-  { deck: 'ops', name: 'File or shred the paperwork', icon: '🗄️', tier: 'monthly',  mins: 20, who: ADULT },
   { deck: 'ops', name: 'Cable tidy',                  icon: '🔌', tier: 'seasonal', mins: 20, who: ADULT },
 
-  // ── Aux Sanitation ────────────────────────────────────────────────────────
+  // ── Downstairs Loo ────────────────────────────────────────────────────────
   { deck: 'auxsan', name: 'Wipe the sink and taps',   icon: '🚰', tier: 'weekly',   mins: 2,  who: ALL },
-  { deck: 'auxsan', name: 'Empty the bin',            icon: '🗑️', tier: 'weekly',   mins: 2,  who: ALL },
-  { deck: 'auxsan', name: 'Restock loo roll and soap', icon: '🧴', tier: 'weekly',  mins: 2,  who: ALL },
   { deck: 'auxsan', name: 'Clean the toilet',         icon: '🚽', tier: 'weekly',   mins: 5,  who: GROWN, pts: 40 },
-  { deck: 'auxsan', name: 'Wipe the mirror',          icon: '🪞', tier: 'weekly',   mins: 2,  who: GROWN },
   { deck: 'auxsan', name: 'Mop the floor',            icon: '🪣', tier: 'biweekly', mins: 5,  who: GROWN },
   { deck: 'auxsan', name: 'Skirting and behind the loo', icon: '📏', tier: 'monthly', mins: 10, who: ADULT, pts: 70 },
 
-  // ── Hydro Bay ─────────────────────────────────────────────────────────────
-  { deck: 'hydro', name: 'Wipe the sink and taps',    icon: '🚰', tier: 'often',    mins: 3,  who: ALL },
-  { deck: 'hydro', name: 'Empty the bin',             icon: '🗑️', tier: 'often',    mins: 2,  who: ALL },
-  { deck: 'hydro', name: 'Hang up the towels properly', icon: '🧺', tier: 'often',  mins: 2,  who: ALL },
+  // ── Bathroom ──────────────────────────────────────────────────────────────
+  { deck: 'hydro', name: 'Wipe the sink and taps',    icon: '🚰', tier: 'weekly',   mins: 3,  who: ALL },
   { deck: 'hydro', name: 'Clean the toilet',          icon: '🚽', tier: 'weekly',   mins: 5,  who: GROWN, pts: 40 },
   { deck: 'hydro', name: 'Wipe the mirror',           icon: '🪞', tier: 'weekly',   mins: 3,  who: GROWN },
   { deck: 'hydro', name: 'Scrub the bath and shower', icon: '🛁', tier: 'weekly',   mins: 15, who: ADULT, pts: 40 },
-  { deck: 'hydro', name: 'Mop the floor',             icon: '🪣', tier: 'weekly',   mins: 10, who: GROWN },
-  { deck: 'hydro', name: 'Descale the showerhead and screen', icon: '🚿', tier: 'monthly', mins: 20, who: ADULT },
+  { deck: 'hydro', name: 'Mop the floor',             icon: '🪣', tier: 'biweekly', mins: 10, who: GROWN },
+  { deck: 'hydro', name: 'Descale the showerhead and screen', icon: '🚿', tier: 'seasonal', mins: 20, who: ADULT },
   { deck: 'hydro', name: 'Wash the bath mat',         icon: '🧺', tier: 'monthly',  mins: 5,  who: ADULT },
-  { deck: 'hydro', name: 'Clean the windows',         icon: '🪟', tier: 'biweekly',  mins: 10, who: ALL },
+  { deck: 'hydro', name: 'Clean the windows',         icon: '🪟', tier: 'monthly',  mins: 10, who: ALL },
   { deck: 'hydro', name: 'Scrub the grout',           icon: '🧱', tier: 'seasonal', mins: 40, who: ADULT, pts: 150 },
 
-  // ── Crew Quarters (same template on each of the three) ────────────────────
+  // ── Bedrooms ──────────────────────────────────────────────────────────────
   // ── Personal tracks ───────────────────────────────────────────────────────
   // Scored on their own track, never in merit. pts is 0 so they also carry no
   // weight in deck integrity — a made bed says something about the room, a
@@ -229,15 +216,9 @@ const DUTIES = [
   { deck: 'bunkb', name: 'Homework done',          icon: '📓', tier: 'daily', mins: 0, pts: 0, who: ['k9'], owners: ['k9'], track: 'research' },
   { deck: 'bunkb', name: 'Read for 20 minutes',    icon: '📖', tier: 'daily', mins: 0, pts: 0, who: ['k9'], owners: ['k9'], track: 'research' },
 
+  // The cleaning half of a bedroom is the same in all three.
   ...['bunka', 'bunkb', 'bunkc'].flatMap((deck) => [
-    // Make the bed stays on its own: it's one concrete action with a visible
-    // result, which is the opposite of the vague "tidy up" that tends to
-    // bounce off a child. Everything else that was just putting-things-away
-    // is folded into one duty.
-    { deck, name: 'Make the bed',              icon: '🛏️', tier: 'often',    mins: 2,  who: ALL },
-    { deck, name: 'Tidy your quarters',        icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
     { deck, name: 'Dust the surfaces',         icon: '🪶', tier: 'biweekly', mins: 5,  who: ALL },
-    { deck, name: 'Change the bedding',        icon: '🛌', tier: 'weekly',   mins: 10, who: ADULT },
     { deck, name: 'Hoover the quarters',       icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
     { deck, name: 'Under the bed',             icon: '🔦', tier: 'monthly',  mins: 15, who: GROWN },
     { deck, name: 'Skirting boards',           icon: '📏', tier: 'monthly',  mins: 10, who: ALL },
@@ -245,9 +226,21 @@ const DUTIES = [
     { deck, name: 'Sort and fold the wardrobe', icon: '👕', tier: 'seasonal', mins: 30, who: ADULT },
   ]),
 
-  // ── Turbolift Shaft ───────────────────────────────────────────────────────
-  { deck: 'turbo', name: 'Clear the step pile',       icon: '📦', tier: 'often',    mins: 3,  who: ALL },
-  { deck: 'turbo', name: 'Wipe the banister',         icon: '🧽', tier: 'weekly',   mins: 5,  who: ALL },
+  // The children's rooms only. Make the bed stays on its own: it's one concrete
+  // action with a visible result, which is the opposite of the vague "tidy up"
+  // that tends to bounce off a child. Everything else that was just
+  // putting-things-away is folded into one duty.
+  //
+  // The adults' room carries neither. Nobody needs an app to deal them their
+  // own bed, and a duty that is always quietly done already reads as
+  // permanently green — which flatters the room it's in and tells you nothing.
+  ...['bunkb', 'bunkc'].flatMap((deck) => [
+    { deck, name: 'Make the bed',              icon: '🛏️', tier: 'often',    mins: 2,  who: ALL },
+    { deck, name: 'Tidy your quarters',        icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
+  ]),
+
+  // ── Stairs ────────────────────────────────────────────────────────────────
+  { deck: 'turbo', name: 'Wipe the banister',         icon: '🧽', tier: 'monthly',  mins: 5,  who: ALL },
   { deck: 'turbo', name: 'Hoover the stairs',         icon: '🌀', tier: 'weekly',   mins: 15, who: ALL, pts: 40 },
   { deck: 'turbo', name: 'Skirting and spindles',     icon: '📏', tier: 'monthly',  mins: 25, who: ADULT, pts: 90 },
   { deck: 'turbo', name: 'Dust the stairwell light',  icon: '💡', tier: 'seasonal', mins: 15, who: ADULT },
