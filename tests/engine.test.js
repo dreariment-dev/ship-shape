@@ -951,8 +951,40 @@ run('the v1 rank names are migrated, but a chosen name is kept', () => {
     })()`);
   assert.strictEqual(res.k9, 'Cadet 1', 'the old Commander was not made a cadet');
   assert.strictEqual(res.k5, 'Marnie', 'a name the crew chose was overwritten');
-  assert.strictEqual(res.bunkb, "Cadet 1's Quarters", 'the quarters kept the old rank');
-  assert.strictEqual(res.v, 2, 'the save was not marked as migrated');
+  // A v1 save runs both steps: the rank comes off the room, then the room is
+  // renamed after itself rather than after the ship.
+  assert.strictEqual(res.bunkb, "Cadet 1's Room", 'the quarters kept an old default');
+  assert.strictEqual(res.v, 3, 'the save was not marked as migrated');
+});
+
+run('the ship-themed room names are migrated, but a chosen room name is kept', () => {
+  // The rooms were renamed after the rooms in v3. An installed copy has the old
+  // defaults stamped into its save, so without this it would read "Aux
+  // Sanitation" forever — while a room the crew named themselves must survive.
+  const res = ctx(`
+    (() => {
+      const kept = localStorage.getItem(STORE_KEY);
+      localStorage.setItem(STORE_KEY, JSON.stringify({
+        v: 2,
+        crewNames: { adult: 'Captain', k9: 'Cadet 1', k5: 'Cadet 2' },
+        deckNames: { auxsan: 'Aux Sanitation', galley: 'The Galley', bunkc: 'Space Cave' },
+        duties: {}, log: [], missions: {}, activeCrew: 'k9',
+      }));
+      load();
+      const out = {
+        auxsan: state.deckNames.auxsan,
+        galley: state.deckNames.galley,
+        bunkc: state.deckNames.bunkc,
+        v: state.v,
+      };
+      localStorage.setItem(STORE_KEY, kept);
+      load();
+      return out;
+    })()`);
+  assert.strictEqual(res.auxsan, 'Downstairs Loo', 'the loo is still called Aux Sanitation');
+  assert.strictEqual(res.galley, 'Kitchen', 'the kitchen is still called the Galley');
+  assert.strictEqual(res.bunkc, 'Space Cave', 'a room name the crew chose was overwritten');
+  assert.strictEqual(res.v, 3, 'the save was not marked as migrated');
 });
 
 run('nobody is shown a droid they could never earn', () => {
