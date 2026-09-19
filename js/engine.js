@@ -82,25 +82,53 @@ function reconcileRoster() {
   migrateNames();
 }
 
-// v1 called one child Commander and the other Cadet, which put one a rank above
-// the other before either had earned anything. Both are cadets now — but names
-// persist across updates, so an installed copy would otherwise keep the old
-// ones forever. Only a name that is still the untouched v1 default is replaced;
-// anything the crew renamed themselves is theirs and stays.
-const V1_DEFAULTS = {
-  crew: { k9: 'Commander', k5: 'Cadet' },
-  deck: { bunkb: "Commander's Quarters", bunkc: "Cadet's Quarters" },
-};
+// Names persist across updates, so a default the app ships with only ever
+// reaches an installed copy once. Each entry lists what the *old* default was:
+// a name still matching it was never touched by the crew, so it's ours to
+// replace. Anything they renamed themselves is theirs and stays, whatever it
+// now collides with.
+//
+//   v2 — v1 called one child Commander and the other Cadet, which put one a
+//        rank above the other before either had earned anything.
+//   v3 — decks were named after the ship rather than the room, so nobody could
+//        tell you which door Aux Sanitation was.
+const STATE_V = 3;
+const RENAMED = [
+  {
+    to: 2,
+    crew: { k9: 'Commander', k5: 'Cadet' },
+    deck: { bunkb: "Commander's Quarters", bunkc: "Cadet's Quarters" },
+  },
+  {
+    to: 3,
+    crew: {},
+    deck: {
+      galley: 'The Galley',
+      bridge: 'The Bridge',
+      playroom: 'The Playroom',
+      ops: 'Ops',
+      auxsan: 'Aux Sanitation',
+      bunka: "Captain's Quarters",
+      bunkb: "Cadet 1's Quarters",
+      bunkc: "Cadet 2's Quarters",
+      hydro: 'Hydro Bay',
+      turbo: 'Turbolift Shaft',
+    },
+  },
+];
 
 function migrateNames() {
-  if ((state.v ?? 1) >= 2) return;
-  Object.entries(V1_DEFAULTS.crew).forEach(([id, was]) => {
-    if (state.crewNames[id] === was) state.crewNames[id] = crewById(id).name;
+  const from = state.v ?? 1;
+  if (from >= STATE_V) return;
+  RENAMED.filter((r) => from < r.to).forEach((r) => {
+    Object.entries(r.crew).forEach(([id, was]) => {
+      if (state.crewNames[id] === was) state.crewNames[id] = crewById(id).name;
+    });
+    Object.entries(r.deck).forEach(([id, was]) => {
+      if (state.deckNames[id] === was) state.deckNames[id] = deckById[id].name;
+    });
   });
-  Object.entries(V1_DEFAULTS.deck).forEach(([id, was]) => {
-    if (state.deckNames[id] === was) state.deckNames[id] = deckById[id].name;
-  });
-  state.v = 2;
+  state.v = STATE_V;
   save();
 }
 

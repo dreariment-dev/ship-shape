@@ -30,14 +30,17 @@ const SHORT = { adult: 'Cpt', k9: 'C1', k5: 'C2' };
 const CREW = vm.runInContext('CREW', c).map((cw) => ({ ...cw, short: SHORT[cw.id] ?? cw.id }));
 
 const TIER_ORDER = ['daily', 'often', 'weekly', 'biweekly', 'monthly', 'seasonal'];
+// Labels come from TIERS — duplicating them here is how this page starts
+// calling a cadence something the app doesn't.
 const TIER_META = {
-  daily:    { label: 'Daily',     every: 'every day',     cls: 'dl' },
-  often:    { label: 'Routine',   every: 'every 3 days',  cls: 'r' },
-  weekly:   { label: 'Scheduled', every: 'every week',    cls: 's' },
-  biweekly: { label: 'Fortnightly', every: 'every 2 weeks', cls: 'f' },
-  monthly:  { label: 'Overhaul',  every: 'every month',   cls: 'o' },
-  seasonal: { label: 'Drydock',   every: 'every 3 months', cls: 'd' },
+  daily:    { every: 'every day',      cls: 'dl' },
+  often:    { every: 'every 3 days',   cls: 'r' },
+  weekly:   { every: 'every week',     cls: 's' },
+  biweekly: { every: 'every 2 weeks',  cls: 'f' },
+  monthly:  { every: 'every month',    cls: 'o' },
+  seasonal: { every: 'every 3 months', cls: 'd' },
 };
+TIER_ORDER.forEach((t) => { TIER_META[t].label = TIERS[t].label; });
 
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 

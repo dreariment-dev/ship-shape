@@ -3,13 +3,17 @@
 // lives in engine.js and localStorage.
 
 // Cadence drives everything: how fast a duty goes stale, and what it pays.
+// Labels say how often, in the words anyone in the house already uses. The
+// ship supplies the fiction everywhere else; a cadence is the one place where
+// having to translate "Drydock" into "every three months" cost more than the
+// theme was worth.
 const TIERS = {
   daily:    { days: 1,  pts: 5,   label: 'Daily' },
-  often:    { days: 3,  pts: 10,  label: 'Routine' },
-  weekly:   { days: 7,  pts: 25,  label: 'Scheduled' },
+  often:    { days: 3,  pts: 10,  label: 'Often' },
+  weekly:   { days: 7,  pts: 25,  label: 'Weekly' },
   biweekly: { days: 14, pts: 35,  label: 'Fortnightly' },
-  monthly:  { days: 30, pts: 50,  label: 'Overhaul' },
-  seasonal: { days: 90, pts: 100, label: 'Drydock' },
+  monthly:  { days: 30, pts: 50,  label: 'Monthly' },
+  seasonal: { days: 90, pts: 100, label: 'Seasonal' },
 };
 
 // target is merit per week, and drives rank and the crew standing.
@@ -69,19 +73,32 @@ const TRACKS = {
   },
 };
 
+// Decks are named after the room you actually walk into; the ship name is the
+// subtitle. You can't send a seven-year-old to Aux Sanitation without them
+// asking which door that is, and a name you have to decode is a name that gets
+// ignored. The fiction still does its job at deck level — a room on 20%
+// integrity is failing life support, not you failing — and that reading
+// survives the room being called the bathroom.
+//
+// Renaming a deck here is safe: duty ids are built from the deck *id*, and an
+// installed copy keeps whatever the crew renamed it to on the device (see
+// RENAMED in engine.js).
 const DECKS = [
-  { id: 'galley',   name: 'The Galley',            sub: 'Kitchen',        zone: 'lower',   emoji: '🍳' },
-  { id: 'bridge',   name: 'The Bridge',            sub: 'Living room',    zone: 'lower',   emoji: '🛋️' },
-  { id: 'playroom', name: 'The Playroom',          sub: 'Living room 2',  zone: 'lower',   emoji: '🧸', owners: ['k9', 'k5'] },
-  { id: 'ops',      name: 'Ops',                   sub: 'Office',         zone: 'lower',   emoji: '🖥️' },
-  { id: 'auxsan',   name: 'Aux Sanitation',        sub: 'Downstairs loo', zone: 'lower',   emoji: '🚽' },
+  { id: 'galley',   name: 'Kitchen',        sub: 'The Galley',        zone: 'lower',   emoji: '🍳' },
+  { id: 'bridge',   name: 'Living Room',    sub: 'The Bridge',        zone: 'lower',   emoji: '🛋️' },
+  { id: 'playroom', name: 'Playroom',       sub: 'Living room 2',     zone: 'lower',   emoji: '🧸', owners: ['k9', 'k5'] },
+  { id: 'ops',      name: 'Office',         sub: 'Ops',               zone: 'lower',   emoji: '🖥️' },
+  { id: 'auxsan',   name: 'Downstairs Loo', sub: 'Aux Sanitation',    zone: 'lower',   emoji: '🚽' },
   // owners: whose patch this is. Anything an owner is capable of doing here is
   // theirs first — see FIRST_REFUSAL below. A deck can have more than one.
-  { id: 'bunka',    name: "Captain's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['adult'] },
-  { id: 'bunkb',    name: "Cadet 1's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['k9'] },
-  { id: 'bunkc',    name: "Cadet 2's Quarters",    sub: 'Bedroom',        zone: 'upper',   emoji: '🛏️', owners: ['k5'] },
-  { id: 'hydro',    name: 'Hydro Bay',             sub: 'Bathroom',       zone: 'upper',   emoji: '🚿' },
-  { id: 'turbo',    name: 'Turbolift Shaft',       sub: 'Stairs',         zone: 'transit', emoji: '🪜' },
+  //
+  // The children's rooms keep the same plain placeholders their crew names do:
+  // this repo is public, so the real names are set on the device via ⚙.
+  { id: 'bunka',    name: 'Bedroom',        sub: "Captain's Quarters", zone: 'upper',  emoji: '🛏️', owners: ['adult'] },
+  { id: 'bunkb',    name: "Cadet 1's Room", sub: 'Crew Quarters',     zone: 'upper',   emoji: '🛏️', owners: ['k9'] },
+  { id: 'bunkc',    name: "Cadet 2's Room", sub: 'Crew Quarters',     zone: 'upper',   emoji: '🛏️', owners: ['k5'] },
+  { id: 'hydro',    name: 'Bathroom',       sub: 'Hydro Bay',         zone: 'upper',   emoji: '🚿' },
+  { id: 'turbo',    name: 'Stairs',         sub: 'Turbolift Shaft',   zone: 'transit', emoji: '🪜' },
 ];
 
 // Which decks each crew member can be dealt from. The children keep their own
@@ -129,39 +146,39 @@ const DUTIES = [
   // The Galley is shared ground, but these two are the children's own standing
   // orders: their stuff, their job to shift it. Duty-level owners override the
   // deck's, so first refusal applies to these without reserving the whole room.
-  { deck: 'galley', name: 'Tidy the kitchen counter', icon: '🧸', tier: 'daily', mins: 5, pts: 8, who: ALL, owners: ['k9', 'k5'] },
-  { deck: 'galley', name: 'Clear the table',          icon: '🍽️', tier: 'daily',    mins: 3,  who: ALL, owners: ['k9', 'k5'] },
-  { deck: 'galley', name: 'Sweep the galley floor',   icon: '🧹', tier: 'often',    mins: 5,  who: ALL },
-  { deck: 'galley', name: 'Dust the shelves and tops', icon: '🪶', tier: 'weekly',  mins: 5,  who: ALL },
+  { deck: 'galley', name: 'Tidy the kitchen counter', icon: '🧸', tier: 'often', mins: 5, pts: 8, who: ALL, owners: ['k9', 'k5'] },
+  { deck: 'galley', name: 'Clear the table',          icon: '🍽️', tier: 'often',    mins: 3,  who: ALL, owners: ['k9', 'k5'] },
+  { deck: 'galley', name: 'Sweep the galley floor',   icon: '🧹', tier: 'weekly',   mins: 5,  who: ALL },
+  { deck: 'galley', name: 'Dust the shelves and tops', icon: '🪶', tier: 'biweekly', mins: 5, who: ALL },
   { deck: 'galley', name: 'Wipe down the worktops',   icon: '🧽', tier: 'often',    mins: 5,  who: GROWN },
   { deck: 'galley', name: 'Empty and rinse the bin',  icon: '🗑️', tier: 'often',    mins: 5,  who: ADULT },
   { deck: 'galley', name: 'Wipe the hob',             icon: '🔥', tier: 'weekly',   mins: 5,  who: ADULT },
-  { deck: 'galley', name: 'Mop the galley floor',     icon: '🪣', tier: 'weekly',   mins: 10, who: ADULT },
+  { deck: 'galley', name: 'Mop the galley floor',     icon: '🪣', tier: 'biweekly', mins: 10, who: ADULT },
   { deck: 'galley', name: 'Clean the microwave',      icon: '📡', tier: 'monthly',  mins: 10, who: GROWN },
   { deck: 'galley', name: 'Wipe the cupboard fronts', icon: '🚪', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'galley', name: 'Clean out one cupboard',   icon: '🗄️', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'galley', name: 'Clear out and wipe a fridge shelf', icon: '❄️', tier: 'monthly', mins: 15, who: ADULT },
   { deck: 'galley', name: 'Descale the kettle',       icon: '🫖', tier: 'monthly',  mins: 5,  who: ADULT },
   { deck: 'galley', name: 'Skirting boards',          icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
-  { deck: 'galley', name: 'Clean the windows',        icon: '🪟', tier: 'biweekly',  mins: 15, who: ALL },
+  { deck: 'galley', name: 'Clean the windows',        icon: '🪟', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'galley', name: 'Clean inside the oven',    icon: '🔥', tier: 'seasonal', mins: 45, who: ADULT, pts: 150 },
   { deck: 'galley', name: 'Defrost and wipe the freezer', icon: '🧊', tier: 'seasonal', mins: 30, who: ADULT },
 
   // ── Bridge ────────────────────────────────────────────────────────────────
   { deck: 'bridge', name: 'Tidy the bridge',          icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
-  { deck: 'bridge', name: 'Dust the surfaces',        icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
+  { deck: 'bridge', name: 'Dust the surfaces',        icon: '🪶', tier: 'biweekly', mins: 5,  who: ALL },
   { deck: 'bridge', name: 'Hoover the bridge',        icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
   { deck: 'bridge', name: 'Wipe the screen and remotes', icon: '📺', tier: 'monthly', mins: 5, who: GROWN },
   { deck: 'bridge', name: 'Hoover under the sofa cushions', icon: '🛋️', tier: 'monthly', mins: 10, who: ALL },
   { deck: 'bridge', name: 'Skirting boards',          icon: '📏', tier: 'monthly',  mins: 15, who: ALL },
-  { deck: 'bridge', name: 'Clean the windows',        icon: '🪟', tier: 'biweekly',  mins: 15, who: ALL },
+  { deck: 'bridge', name: 'Clean the windows',        icon: '🪟', tier: 'monthly',  mins: 15, who: ALL },
   { deck: 'bridge', name: 'High shelves and light fittings', icon: '💡', tier: 'seasonal', mins: 20, who: ADULT },
 
   // ── Wardroom ──────────────────────────────────────────────────────────────
   // The Playroom is shared ground for both children, so it carries more jobs
   // they can actually be dealt than a second sitting room would.
   { deck: 'playroom', name: 'Tidy the playroom',      icon: '🧸', tier: 'often',    mins: 8,  pts: 20, who: ALL },
-  { deck: 'playroom', name: 'Dust the surfaces',      icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
+  { deck: 'playroom', name: 'Dust the surfaces',      icon: '🪶', tier: 'biweekly', mins: 5,  who: ALL },
   { deck: 'playroom', name: 'Hoover the playroom',    icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
   { deck: 'playroom', name: 'Sort out one toy box',   icon: '🪀', tier: 'monthly',  mins: 20, who: ALL },
   { deck: 'playroom', name: 'Wipe the doors and light switches', icon: '🚪', tier: 'monthly', mins: 10, who: ALL },
@@ -176,17 +193,17 @@ const DUTIES = [
   { deck: 'ops', name: 'Hoover Ops',                  icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
   { deck: 'ops', name: 'Wipe screens and keyboard',   icon: '⌨️', tier: 'monthly',  mins: 5,  who: GROWN },
   { deck: 'ops', name: 'Skirting boards',             icon: '📏', tier: 'monthly',  mins: 10, who: ALL },
-  { deck: 'ops', name: 'Clean the windows',           icon: '🪟', tier: 'biweekly',  mins: 10, who: ALL },
+  { deck: 'ops', name: 'Clean the windows',           icon: '🪟', tier: 'monthly',  mins: 10, who: ALL },
   { deck: 'ops', name: 'File or shred the paperwork', icon: '🗄️', tier: 'monthly',  mins: 20, who: ADULT },
   { deck: 'ops', name: 'Cable tidy',                  icon: '🔌', tier: 'seasonal', mins: 20, who: ADULT },
 
   // ── Aux Sanitation ────────────────────────────────────────────────────────
-  { deck: 'auxsan', name: 'Wipe the sink and taps',   icon: '🚰', tier: 'often',    mins: 2,  who: ALL },
-  { deck: 'auxsan', name: 'Empty the bin',            icon: '🗑️', tier: 'often',    mins: 2,  who: ALL },
-  { deck: 'auxsan', name: 'Restock loo roll and soap', icon: '🧴', tier: 'often',   mins: 2,  who: ALL },
+  { deck: 'auxsan', name: 'Wipe the sink and taps',   icon: '🚰', tier: 'weekly',   mins: 2,  who: ALL },
+  { deck: 'auxsan', name: 'Empty the bin',            icon: '🗑️', tier: 'weekly',   mins: 2,  who: ALL },
+  { deck: 'auxsan', name: 'Restock loo roll and soap', icon: '🧴', tier: 'weekly',  mins: 2,  who: ALL },
   { deck: 'auxsan', name: 'Clean the toilet',         icon: '🚽', tier: 'weekly',   mins: 5,  who: GROWN, pts: 40 },
   { deck: 'auxsan', name: 'Wipe the mirror',          icon: '🪞', tier: 'weekly',   mins: 2,  who: GROWN },
-  { deck: 'auxsan', name: 'Mop the floor',            icon: '🪣', tier: 'weekly',   mins: 5,  who: GROWN },
+  { deck: 'auxsan', name: 'Mop the floor',            icon: '🪣', tier: 'biweekly', mins: 5,  who: GROWN },
   { deck: 'auxsan', name: 'Skirting and behind the loo', icon: '📏', tier: 'monthly', mins: 10, who: ADULT, pts: 70 },
 
   // ── Hydro Bay ─────────────────────────────────────────────────────────────
@@ -219,12 +236,12 @@ const DUTIES = [
     // is folded into one duty.
     { deck, name: 'Make the bed',              icon: '🛏️', tier: 'often',    mins: 2,  who: ALL },
     { deck, name: 'Tidy your quarters',        icon: '📦', tier: 'often',    mins: 8,  pts: 20, who: ALL },
-    { deck, name: 'Dust the surfaces',         icon: '🪶', tier: 'weekly',   mins: 5,  who: ALL },
+    { deck, name: 'Dust the surfaces',         icon: '🪶', tier: 'biweekly', mins: 5,  who: ALL },
     { deck, name: 'Change the bedding',        icon: '🛌', tier: 'weekly',   mins: 10, who: ADULT },
     { deck, name: 'Hoover the quarters',       icon: '🌀', tier: 'weekly',   mins: 10, who: ALL },
     { deck, name: 'Under the bed',             icon: '🔦', tier: 'monthly',  mins: 15, who: GROWN },
     { deck, name: 'Skirting boards',           icon: '📏', tier: 'monthly',  mins: 10, who: ALL },
-    { deck, name: 'Clean the windows',         icon: '🪟', tier: 'biweekly',  mins: 10, who: ALL },
+    { deck, name: 'Clean the windows',         icon: '🪟', tier: 'monthly',  mins: 10, who: ALL },
     { deck, name: 'Sort and fold the wardrobe', icon: '👕', tier: 'seasonal', mins: 30, who: ADULT },
   ]),
 
